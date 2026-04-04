@@ -9,8 +9,12 @@ const DEFAULT_STATE = {
   active: [true, false, true, false, true, false, true, false],
   bpm: 90,
   metronomeEnabled: true,
+  metronomeDownEnabled: true,
+  metronomeUpEnabled: true,
   metronomeVolume: 55,
   strumEnabled: true,
+  strumDownEnabled: true,
+  strumUpEnabled: true,
   strumVolume: 70,
 };
 
@@ -34,7 +38,11 @@ const elements = {
   bpmInput: document.getElementById("bpmInput"),
   bpmRange: document.getElementById("bpmRange"),
   metronomeToggle: document.getElementById("metronomeToggle"),
+  metronomeDownToggle: document.getElementById("metronomeDownToggle"),
+  metronomeUpToggle: document.getElementById("metronomeUpToggle"),
   strumToggle: document.getElementById("strumToggle"),
+  strumDownToggle: document.getElementById("strumDownToggle"),
+  strumUpToggle: document.getElementById("strumUpToggle"),
   metronomeVolume: document.getElementById("metronomeVolume"),
   strumVolume: document.getElementById("strumVolume"),
   metronomeStatus: document.getElementById("metronomeStatus"),
@@ -84,16 +92,24 @@ function loadStateFromUrl() {
   const pattern = decodePattern(params.get("p"));
   const bpm = parseNumberParam(params.get("b"));
   const metronomeEnabled = parseBooleanParam(params.get("mc"));
+  const metronomeDownEnabled = parseBooleanParam(params.get("md"));
+  const metronomeUpEnabled = parseBooleanParam(params.get("mu"));
   const metronomeVolume = parseNumberParam(params.get("mv"));
   const strumEnabled = parseBooleanParam(params.get("sc"));
+  const strumDownEnabled = parseBooleanParam(params.get("sd"));
+  const strumUpEnabled = parseBooleanParam(params.get("su"));
   const strumVolume = parseNumberParam(params.get("sv"));
 
   if (
     pattern === null &&
     bpm === null &&
     metronomeEnabled === null &&
+    metronomeDownEnabled === null &&
+    metronomeUpEnabled === null &&
     metronomeVolume === null &&
     strumEnabled === null &&
+    strumDownEnabled === null &&
+    strumUpEnabled === null &&
     strumVolume === null
   ) {
     return null;
@@ -103,8 +119,12 @@ function loadStateFromUrl() {
     active: pattern,
     bpm,
     metronomeEnabled,
+    metronomeDownEnabled,
+    metronomeUpEnabled,
     metronomeVolume,
     strumEnabled,
+    strumDownEnabled,
+    strumUpEnabled,
     strumVolume,
   });
 }
@@ -129,8 +149,12 @@ function getSerializableState() {
     active: [...state.active],
     bpm: state.bpm,
     metronomeEnabled: state.metronomeEnabled,
+    metronomeDownEnabled: state.metronomeDownEnabled,
+    metronomeUpEnabled: state.metronomeUpEnabled,
     metronomeVolume: state.metronomeVolume,
     strumEnabled: state.strumEnabled,
+    strumDownEnabled: state.strumDownEnabled,
+    strumUpEnabled: state.strumUpEnabled,
     strumVolume: state.strumVolume,
   };
 }
@@ -140,8 +164,12 @@ function sanitizeSerializableState(candidate = {}) {
     active: sanitizeActivePattern(candidate.active),
     bpm: clampBpm(candidate.bpm),
     metronomeEnabled: getBooleanSetting(candidate.metronomeEnabled, DEFAULT_STATE.metronomeEnabled),
+    metronomeDownEnabled: getBooleanSetting(candidate.metronomeDownEnabled, DEFAULT_STATE.metronomeDownEnabled),
+    metronomeUpEnabled: getBooleanSetting(candidate.metronomeUpEnabled, DEFAULT_STATE.metronomeUpEnabled),
     metronomeVolume: clampSliderValue(candidate.metronomeVolume, DEFAULT_STATE.metronomeVolume),
     strumEnabled: getBooleanSetting(candidate.strumEnabled, DEFAULT_STATE.strumEnabled),
+    strumDownEnabled: getBooleanSetting(candidate.strumDownEnabled, DEFAULT_STATE.strumDownEnabled),
+    strumUpEnabled: getBooleanSetting(candidate.strumUpEnabled, DEFAULT_STATE.strumUpEnabled),
     strumVolume: clampSliderValue(candidate.strumVolume, DEFAULT_STATE.strumVolume),
   };
 }
@@ -154,6 +182,14 @@ function sanitizePartialSerializableState(candidate = {}) {
       candidate.metronomeEnabled === null
         ? null
         : getBooleanSetting(candidate.metronomeEnabled, DEFAULT_STATE.metronomeEnabled),
+    metronomeDownEnabled:
+      candidate.metronomeDownEnabled === null
+        ? null
+        : getBooleanSetting(candidate.metronomeDownEnabled, DEFAULT_STATE.metronomeDownEnabled),
+    metronomeUpEnabled:
+      candidate.metronomeUpEnabled === null
+        ? null
+        : getBooleanSetting(candidate.metronomeUpEnabled, DEFAULT_STATE.metronomeUpEnabled),
     metronomeVolume:
       candidate.metronomeVolume === null
         ? null
@@ -162,6 +198,14 @@ function sanitizePartialSerializableState(candidate = {}) {
       candidate.strumEnabled === null
         ? null
         : getBooleanSetting(candidate.strumEnabled, DEFAULT_STATE.strumEnabled),
+    strumDownEnabled:
+      candidate.strumDownEnabled === null
+        ? null
+        : getBooleanSetting(candidate.strumDownEnabled, DEFAULT_STATE.strumDownEnabled),
+    strumUpEnabled:
+      candidate.strumUpEnabled === null
+        ? null
+        : getBooleanSetting(candidate.strumUpEnabled, DEFAULT_STATE.strumUpEnabled),
     strumVolume:
       candidate.strumVolume === null ? null : clampSliderValue(candidate.strumVolume, DEFAULT_STATE.strumVolume),
   };
@@ -177,8 +221,12 @@ function mergeSerializableState(...candidates) {
       active: candidate.active ?? merged.active,
       bpm: candidate.bpm ?? merged.bpm,
       metronomeEnabled: candidate.metronomeEnabled ?? merged.metronomeEnabled,
+      metronomeDownEnabled: candidate.metronomeDownEnabled ?? merged.metronomeDownEnabled,
+      metronomeUpEnabled: candidate.metronomeUpEnabled ?? merged.metronomeUpEnabled,
       metronomeVolume: candidate.metronomeVolume ?? merged.metronomeVolume,
       strumEnabled: candidate.strumEnabled ?? merged.strumEnabled,
+      strumDownEnabled: candidate.strumDownEnabled ?? merged.strumDownEnabled,
+      strumUpEnabled: candidate.strumUpEnabled ?? merged.strumUpEnabled,
       strumVolume: candidate.strumVolume ?? merged.strumVolume,
     };
   }, sanitizeSerializableState(DEFAULT_STATE));
@@ -266,8 +314,12 @@ function buildShareUrl() {
   url.searchParams.set("p", encodePattern(serializableState.active));
   url.searchParams.set("b", String(serializableState.bpm));
   url.searchParams.set("mc", serializableState.metronomeEnabled ? "1" : "0");
+  url.searchParams.set("md", serializableState.metronomeDownEnabled ? "1" : "0");
+  url.searchParams.set("mu", serializableState.metronomeUpEnabled ? "1" : "0");
   url.searchParams.set("mv", String(serializableState.metronomeVolume));
   url.searchParams.set("sc", serializableState.strumEnabled ? "1" : "0");
+  url.searchParams.set("sd", serializableState.strumDownEnabled ? "1" : "0");
+  url.searchParams.set("su", serializableState.strumUpEnabled ? "1" : "0");
   url.searchParams.set("sv", String(serializableState.strumVolume));
 
   return url;
@@ -321,8 +373,12 @@ function applyStateToControls() {
   elements.bpmInput.value = state.bpm;
   elements.bpmRange.value = state.bpm;
   elements.metronomeToggle.checked = state.metronomeEnabled;
+  elements.metronomeDownToggle.checked = state.metronomeDownEnabled;
+  elements.metronomeUpToggle.checked = state.metronomeUpEnabled;
   elements.metronomeVolume.value = state.metronomeVolume;
   elements.strumToggle.checked = state.strumEnabled;
+  elements.strumDownToggle.checked = state.strumDownEnabled;
+  elements.strumUpToggle.checked = state.strumUpEnabled;
   elements.strumVolume.value = state.strumVolume;
 }
 
@@ -386,11 +442,19 @@ function updateMetronomeStatus() {
   elements.playBtn.setAttribute("aria-pressed", isRunning ? "true" : "false");
 
   if (!isRunning) {
-    elements.metronomeStatus.textContent = `Stopped · eighth-note pulse · ${state.bpm} BPM`;
+    setMetronomeStatus({
+      title: "Stopped",
+      detail: "Eighth-note pulse",
+      bpm: state.bpm,
+    });
     return;
   }
 
-  elements.metronomeStatus.textContent = `Playing at ${state.bpm} BPM · current step: ${stepLabel}`;
+  setMetronomeStatus({
+    title: "Playing",
+    detail: `Current step: ${stepLabel}`,
+    bpm: state.bpm,
+  });
 }
 
 function registerTapTempo() {
@@ -408,7 +472,11 @@ function registerTapTempo() {
   }
 
   if (tapTempoTimestamps.length < 2) {
-    elements.metronomeStatus.textContent = "Tap again to set the tempo.";
+    setMetronomeStatus({
+      title: "Tap tempo",
+      detail: "Tap again to set the tempo",
+      bpm: null,
+    });
     return;
   }
 
@@ -421,7 +489,21 @@ function registerTapTempo() {
   const tappedBpm = Math.round(60000 / averageIntervalMs);
 
   syncBpm(tappedBpm);
-  elements.metronomeStatus.textContent = `Tapped tempo · ${state.bpm} BPM`;
+  setMetronomeStatus({
+    title: "Tapped tempo",
+    detail: "Averaged from your recent taps",
+    bpm: state.bpm,
+  });
+}
+
+function setMetronomeStatus({ title, detail, bpm }) {
+  const bpmMarkup = Number.isFinite(bpm) ? `<span class="status-bpm">${bpm} BPM</span>` : "";
+  const detailMarkup = detail ? `<span class="status-detail">${detail}</span>` : "";
+
+  elements.metronomeStatus.innerHTML = `
+    <span class="status-title">${title}</span>
+    <span class="status-meta">${detailMarkup}${bpmMarkup}</span>
+  `;
 }
 
 function toggleSlot(index) {
@@ -536,6 +618,10 @@ function playMetronomeClick(stepIndex) {
   }
 
   const isDownBeat = stepIndex % 2 === 0;
+  if ((isDownBeat && !state.metronomeDownEnabled) || (!isDownBeat && !state.metronomeUpEnabled)) {
+    return;
+  }
+
   playTone({
     frequency: isDownBeat ? 950 : 1400,
     volume: (state.metronomeVolume / 100) * (isDownBeat ? 0.45 : 0.34),
@@ -550,6 +636,10 @@ function playStrumSound(stepIndex) {
   }
 
   const isDownStrum = DIRECTIONS[stepIndex] === "D";
+  if ((isDownStrum && !state.strumDownEnabled) || (!isDownStrum && !state.strumUpEnabled)) {
+    return;
+  }
+
   playTone({
     frequency: isDownStrum ? 220 : 320,
     volume: (state.strumVolume / 100) * 0.4,
@@ -648,8 +738,24 @@ function attachEventListeners() {
     updateToggleState("metronomeEnabled", event.target.checked);
   });
 
+  elements.metronomeDownToggle.addEventListener("change", (event) => {
+    updateToggleState("metronomeDownEnabled", event.target.checked);
+  });
+
+  elements.metronomeUpToggle.addEventListener("change", (event) => {
+    updateToggleState("metronomeUpEnabled", event.target.checked);
+  });
+
   elements.strumToggle.addEventListener("change", (event) => {
     updateToggleState("strumEnabled", event.target.checked);
+  });
+
+  elements.strumDownToggle.addEventListener("change", (event) => {
+    updateToggleState("strumDownEnabled", event.target.checked);
+  });
+
+  elements.strumUpToggle.addEventListener("change", (event) => {
+    updateToggleState("strumUpEnabled", event.target.checked);
   });
 
   elements.metronomeVolume.addEventListener("input", (event) => {

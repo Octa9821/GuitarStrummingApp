@@ -76,6 +76,36 @@ h1 {
   align-items: center;
 }
 
+.control-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.control-card {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.control-card h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.card-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-controls-buttons {
+  align-items: stretch;
+}
+
 .share-bar {
   display: flex;
   flex-wrap: wrap;
@@ -93,6 +123,7 @@ h1 {
 .tooltip {
   position: relative;
   display: inline-flex;
+  width: 100%;
 }
 
 .tooltip-bubble {
@@ -182,6 +213,7 @@ button.secondary {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   min-height: 52px;
   padding: 8px 12px;
   border-radius: 14px;
@@ -190,8 +222,30 @@ button.secondary {
   color: var(--text);
 }
 
+.control-card .field,
+.control-card button,
+.control-card .tooltip,
+.control-card .status {
+  width: 100%;
+}
+
 .field span {
   white-space: nowrap;
+}
+
+.icon-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  min-width: 20px;
+  color: #cbd5e1;
+}
+
+.icon-label svg {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .field-compact {
@@ -217,7 +271,9 @@ button.secondary {
 }
 
 .field input[type="range"] {
-  width: 180px;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
   touch-action: pan-x;
 }
 
@@ -227,19 +283,57 @@ button.secondary {
 }
 
 .status {
-  display: inline-flex;
-  align-items: center;
+  display: block;
   color: var(--muted);
   font-size: 0.95rem;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
-  min-width: 18ch;
-  min-height: 52px;
-  padding: 10px 14px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.control-card .status {
+  width: auto;
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.status-title {
+  display: block;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.status-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.status-detail {
+  color: var(--muted);
+}
+
+.status-bpm {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  background: rgba(96, 165, 250, 0.08);
+  color: #dbeafe;
+  white-space: nowrap;
 }
 
 .grid {
@@ -351,8 +445,8 @@ button.secondary {
     padding: 24px;
   }
 
-  .field input[type="range"] {
-    width: 150px;
+  .control-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -376,21 +470,19 @@ button.secondary {
     max-width: none;
   }
 
-  .metronome-controls,
   .controls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
   }
 
-  .metronome-controls > button,
-  .controls > button,
-  .tooltip {
+  .controls > button {
     width: 100%;
   }
 
-  .metronome-controls > :not(button) {
-    grid-column: 1 / -1;
+  .control-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .grid {
@@ -424,12 +516,16 @@ button.secondary {
   }
 
   .field input[type="range"] {
-    width: min(200px, 100%);
     flex: 1;
   }
 
   .status {
     width: 100%;
+  }
+
+  .control-card .status {
+    font-size: 0.88rem;
+    padding: 9px 11px;
   }
 
   .legend {

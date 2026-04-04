@@ -24,54 +24,107 @@
 
     <section class="panel" aria-label="Metronome controls">
       <h2>Metronome</h2>
-      <div class="metronome-controls">
-        <button class="primary" id="playBtn" type="button">Start</button>
-        <button id="stopBtn" type="button">Stop</button>
-        <div class="tooltip">
-          <button
-            class="secondary"
-            id="tapTempoBtn"
-            type="button"
-            aria-describedby="tapTempoHint"
-          >
-            Tap Tempo
-          </button>
-          <div class="tooltip-bubble" id="tapTempoHint" role="tooltip">
-            Tap at least twice in quarter notes. The app averages your last few taps and resets after a short pause.
+      <div class="control-cards">
+        <section class="control-card" aria-label="Playback controls">
+          <h3>Playback</h3>
+          <div class="card-controls card-controls-buttons">
+            <button class="primary" id="playBtn" type="button">Start</button>
+            <button id="stopBtn" type="button">Stop</button>
+            <div class="tooltip">
+              <button
+                class="secondary"
+                id="tapTempoBtn"
+                type="button"
+                aria-describedby="tapTempoHint"
+              >
+                Tap Tempo
+              </button>
+              <div class="tooltip-bubble" id="tapTempoHint" role="tooltip">
+                Tap at least twice in quarter notes. The app averages your last few taps and resets after a short pause.
+              </div>
+            </div>
           </div>
-        </div>
+          <div class="status" id="metronomeStatus">Stopped · eighth-note pulse</div>
+        </section>
 
-        <label class="field field-compact" for="bpmInput">
-          <span>BPM</span>
-          <input id="bpmInput" type="number" min="40" max="220" value="90" />
-        </label>
+        <section class="control-card" aria-label="Tempo controls">
+          <h3>Tempo</h3>
+          <div class="card-controls">
+            <label class="field field-compact" for="bpmInput">
+              <span>BPM</span>
+              <input id="bpmInput" type="number" min="40" max="220" value="90" />
+            </label>
 
-        <label class="field" for="bpmRange">
-          <span>Tempo</span>
-          <input id="bpmRange" type="range" min="40" max="220" value="90" />
-        </label>
+            <label class="field" for="bpmRange">
+              <span>Tempo</span>
+              <input id="bpmRange" type="range" min="40" max="220" value="90" />
+            </label>
+          </div>
+        </section>
 
-        <label class="field checkbox" for="metronomeToggle">
-          <input id="metronomeToggle" type="checkbox" checked />
-          <span>Metronome clicks</span>
-        </label>
+        <section class="control-card" aria-label="Metronome sound controls">
+          <h3>Metronome Sound</h3>
+          <div class="card-controls">
+            <label class="field checkbox" for="metronomeToggle">
+              <input id="metronomeToggle" type="checkbox" checked />
+              <span>Metronome clicks</span>
+            </label>
 
-        <label class="field" for="metronomeVolume">
-          <span>Metronome vol</span>
-          <input id="metronomeVolume" type="range" min="0" max="100" value="55" />
-        </label>
+            <label class="field checkbox" for="metronomeDownToggle">
+              <input id="metronomeDownToggle" type="checkbox" checked />
+              <span>Metro ↓</span>
+            </label>
 
-        <label class="field checkbox" for="strumToggle">
-          <input id="strumToggle" type="checkbox" checked />
-          <span>Strum playback</span>
-        </label>
+            <label class="field checkbox" for="metronomeUpToggle">
+              <input id="metronomeUpToggle" type="checkbox" checked />
+              <span>Metro ↑</span>
+            </label>
 
-        <label class="field" for="strumVolume">
-          <span>Strum vol</span>
-          <input id="strumVolume" type="range" min="0" max="100" value="70" />
-        </label>
+            <label class="field" for="metronomeVolume">
+              <span class="icon-label" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path
+                    d="M3 10v4h4l5 4V6L7 10H3zm12.5 2a3.5 3.5 0 0 0-2-3.15v6.3A3.5 3.5 0 0 0 15.5 12zm0-7.5v2.06a5.5 5.5 0 0 1 0 10.88v2.06a7.5 7.5 0 0 0 0-15z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+              <input id="metronomeVolume" type="range" min="0" max="100" value="55" />
+            </label>
+          </div>
+        </section>
 
-        <div class="status" id="metronomeStatus">Stopped · eighth-note pulse</div>
+        <section class="control-card" aria-label="Strum sound controls">
+          <h3>Strum Sound</h3>
+          <div class="card-controls">
+            <label class="field checkbox" for="strumToggle">
+              <input id="strumToggle" type="checkbox" checked />
+              <span>Strum playback</span>
+            </label>
+
+            <label class="field checkbox" for="strumDownToggle">
+              <input id="strumDownToggle" type="checkbox" checked />
+              <span>Strum ↓</span>
+            </label>
+
+            <label class="field checkbox" for="strumUpToggle">
+              <input id="strumUpToggle" type="checkbox" checked />
+              <span>Strum ↑</span>
+            </label>
+
+            <label class="field" for="strumVolume">
+              <span class="icon-label" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path
+                    d="M3 10v4h4l5 4V6L7 10H3zm12.5 2a3.5 3.5 0 0 0-2-3.15v6.3A3.5 3.5 0 0 0 15.5 12zm0-7.5v2.06a5.5 5.5 0 0 1 0 10.88v2.06a7.5 7.5 0 0 0 0-15z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+              <input id="strumVolume" type="range" min="0" max="100" value="70" />
+            </label>
+          </div>
+        </section>
       </div>
     </section>
 
