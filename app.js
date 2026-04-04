@@ -1,11 +1,14 @@
-const COUNTS = ["1", "+", "2", "+", "3", "+", "4", "+"];
-const DIRECTIONS = ["D", "U", "D", "U", "D", "U", "D", "U"];
+const SUBDIVISION_MODES = {
+  eighth: "8th",
+  sixteenth: "16th",
+};
 const STORAGE_KEY = "strumming-pattern-builder:state";
 const SHARE_STATUS_TIMEOUT_MS = 2200;
 const TAP_TEMPO_RESET_MS = 2200;
 const TAP_TEMPO_SAMPLE_LIMIT = 6;
 
 const DEFAULT_STATE = {
+  subdivisionMode: SUBDIVISION_MODES.eighth,
   active: [true, false, true, false, true, false, true, false],
   bpm: 90,
   metronomeEnabled: true,
@@ -35,6 +38,8 @@ const elements = {
   playBtn: document.getElementById("playBtn"),
   stopBtn: document.getElementById("stopBtn"),
   tapTempoBtn: document.getElementById("tapTempoBtn"),
+  eighthModeBtn: document.getElementById("eighthModeBtn"),
+  sixteenthModeBtn: document.getElementById("sixteenthModeBtn"),
   bpmInput: document.getElementById("bpmInput"),
   bpmRange: document.getElementById("bpmRange"),
   metronomeToggle: document.getElementById("metronomeToggle"),
@@ -89,7 +94,8 @@ function loadStateFromUrl() {
     return null;
   }
 
-  const pattern = decodePattern(params.get("p"));
+  const subdivisionMode = parseSubdivisionMode(params.get("m")) ?? inferSubdivisionModeFromPattern(params.get("p"));
+  const pattern = decodePattern(params.get("p"), subdivisionMode ?? DEFAULT_STATE.subdivisionMode);
   const bpm = parseNumberParam(params.get("b"));
   const metronomeEnabled = parseBooleanParam(params.get("mc"));
   const metronomeDownEnabled = parseBooleanParam(params.get("md"));
@@ -102,6 +108,7 @@ function loadStateFromUrl() {
 
   if (
     pattern === null &&
+    subdivisionMode === null &&
     bpm === null &&
     metronomeEnabled === null &&
     metronomeDownEnabled === null &&
@@ -116,6 +123,7 @@ function loadStateFromUrl() {
   }
 
   return sanitizePartialSerializableState({
+    subdivisionMode,
     active: pattern,
     bpm,
     metronomeEnabled,
@@ -146,6 +154,7 @@ function syncStoredState() {
 
 function getSerializableState() {
   return {
+    subdivisionMode: state.subdivisionMode,
     active: [...state.active],
     bpm: state.bpm,
     metronomeEnabled: state.metronomeEnabled,
@@ -160,8 +169,11 @@ function getSerializableState() {
 }
 
 function sanitizeSerializableState(candidate = {}) {
+  const subdivisionMode = sanitizeSubdivisionMode(candidate.subdivisionMode);
+
   return {
-    active: sanitizeActivePattern(candidate.active),
+    subdivisionMode,
+    active: sanitizeActivePattern(candidate.active, subdivisionMode),
     bpm: clampBpm(candidate.bpm),
     metronomeEnabled: getBooleanSetting(candidate.metronomeEnabled, DEFAULT_STATE.metronomeEnabled),
     metronomeDownEnabled: getBooleanSetting(candidate.metronomeDownEnabled, DEFAULT_STATE.metronomeDownEnabled),
@@ -175,8 +187,15 @@ function sanitizeSerializableState(candidate = {}) {
 }
 
 function sanitizePartialSerializableState(candidate = {}) {
+  const subdivisionMode =
+    candidate.subdivisionMode === null || candidate.subdivisionMode === undefined
+      ? null
+      : sanitizeSubdivisionMode(candidate.subdivisionMode);
+  const activeMode = subdivisionMode ?? DEFAULT_STATE.subdivisionMode;
+
   return {
-    active: candidate.active === null ? null : sanitizeActivePattern(candidate.active),
+    subdivisionMode,
+    active: candidate.active === null ? null : sanitizeActivePattern(candidate.active, activeMode),
     bpm: candidate.bpm === null ? null : clampBpm(candidate.bpm),
     metronomeEnabled:
       candidate.metronomeEnabled === null
@@ -217,8 +236,16 @@ function mergeSerializableState(...candidates) {
       return merged;
     }
 
-    return {
-      active: candidate.active ?? merged.active,
+    const nextSubdivisionMode = candidate.subdivisionMode ?? merged.subdivisionMode;
+    const nextActive =
+      candidate.active ??
+      (nextSubdivisionMode !== merged.subdivisionMode
+        ? convertPatternToMode(merged.active, nextSubdivisionMode)
+        : merged.active);
+
+    return sanitizeSerializableState({
+      subdivisionMode: nextSubdivisionMode,
+      active: nextActive,
       bpm: candidate.bpm ?? merged.bpm,
       metronomeEnabled: candidate.metronomeEnabled ?? merged.metronomeEnabled,
       metronomeDownEnabled: candidate.metronomeDownEnabled ?? merged.metronomeDownEnabled,
@@ -228,13 +255,61 @@ function mergeSerializableState(...candidates) {
       strumDownEnabled: candidate.strumDownEnabled ?? merged.strumDownEnabled,
       strumUpEnabled: candidate.strumUpEnabled ?? merged.strumUpEnabled,
       strumVolume: candidate.strumVolume ?? merged.strumVolume,
-    };
+    });
   }, sanitizeSerializableState(DEFAULT_STATE));
 }
 
-function sanitizeActivePattern(value) {
-  if (!Array.isArray(value) || value.length !== COUNTS.length) {
-    return [...DEFAULT_STATE.active];
+function sanitizeSubdivisionMode(value) {
+  return value === SUBDIVISION_MODES.sixteenth ? SUBDIVISION_MODES.sixteenth : SUBDIVISION_MODES.eighth;
+}
+
+function getSubdivisions(mode = state.subdivisionMode) {
+  if (mode === SUBDIVISION_MODES.sixteenth) {
+    return [
+      { count: "1", direction: "D" },
+      { count: "e", direction: "U" },
+      { count: "+", direction: "D" },
+      { count: "a", direction: "U" },
+      { count: "2", direction: "D" },
+      { count: "e", direction: "U" },
+      { count: "+", direction: "D" },
+      { count: "a", direction: "U" },
+      { count: "3", direction: "D" },
+      { count: "e", direction: "U" },
+      { count: "+", direction: "D" },
+      { count: "a", direction: "U" },
+      { count: "4", direction: "D" },
+      { count: "e", direction: "U" },
+      { count: "+", direction: "D" },
+      { count: "a", direction: "U" },
+    ];
+  }
+
+  return [
+    { count: "1", direction: "D" },
+    { count: "+", direction: "U" },
+    { count: "2", direction: "D" },
+    { count: "+", direction: "U" },
+    { count: "3", direction: "D" },
+    { count: "+", direction: "U" },
+    { count: "4", direction: "D" },
+    { count: "+", direction: "U" },
+  ];
+}
+
+function getSubdivisionCount(mode = state.subdivisionMode) {
+  return getSubdivisions(mode).length;
+}
+
+function sanitizeActivePattern(value, mode = DEFAULT_STATE.subdivisionMode) {
+  const expectedLength = getSubdivisionCount(mode);
+  const fallback =
+    mode === DEFAULT_STATE.subdivisionMode
+      ? [...DEFAULT_STATE.active]
+      : Array.from({ length: expectedLength }, (_, index) => (index % 4 === 0 ? true : false));
+
+  if (!Array.isArray(value) || value.length !== expectedLength) {
+    return fallback;
   }
 
   return value.map((slot) => Boolean(slot));
@@ -283,13 +358,33 @@ function parseBooleanParam(value) {
   return null;
 }
 
-function encodePattern(pattern) {
-  const binary = pattern.map((slot) => (slot ? "1" : "0")).join("");
-  return Number.parseInt(binary, 2).toString(16).padStart(2, "0");
+function parseSubdivisionMode(value) {
+  if (value === SUBDIVISION_MODES.eighth || value === SUBDIVISION_MODES.sixteenth) {
+    return value;
+  }
+
+  return null;
 }
 
-function decodePattern(value) {
-  if (!value || !/^[\da-f]{1,2}$/i.test(value)) {
+function inferSubdivisionModeFromPattern(value) {
+  if (!value || !/^[\da-f]{1,4}$/i.test(value)) {
+    return null;
+  }
+
+  return value.length > 2 ? SUBDIVISION_MODES.sixteenth : SUBDIVISION_MODES.eighth;
+}
+
+function encodePattern(pattern) {
+  const binary = pattern.map((slot) => (slot ? "1" : "0")).join("");
+  const width = Math.ceil(pattern.length / 4);
+  return Number.parseInt(binary, 2).toString(16).padStart(width, "0");
+}
+
+function decodePattern(value, mode = DEFAULT_STATE.subdivisionMode) {
+  const expectedLength = getSubdivisionCount(mode);
+  const expectedWidth = Math.ceil(expectedLength / 4);
+
+  if (!value || !new RegExp(`^[\\da-f]{1,${expectedWidth}}$`, "i").test(value)) {
     return null;
   }
 
@@ -300,8 +395,8 @@ function decodePattern(value) {
 
   return numeric
     .toString(2)
-    .padStart(COUNTS.length, "0")
-    .slice(-COUNTS.length)
+    .padStart(expectedLength, "0")
+    .slice(-expectedLength)
     .split("")
     .map((digit) => digit === "1");
 }
@@ -311,6 +406,7 @@ function buildShareUrl() {
   const serializableState = getSerializableState();
 
   url.search = "";
+  url.searchParams.set("m", serializableState.subdivisionMode);
   url.searchParams.set("p", encodePattern(serializableState.active));
   url.searchParams.set("b", String(serializableState.bpm));
   url.searchParams.set("mc", serializableState.metronomeEnabled ? "1" : "0");
@@ -370,6 +466,11 @@ async function copyShareLink() {
 }
 
 function applyStateToControls() {
+  elements.eighthModeBtn.setAttribute("aria-pressed", state.subdivisionMode === SUBDIVISION_MODES.eighth ? "true" : "false");
+  elements.sixteenthModeBtn.setAttribute(
+    "aria-pressed",
+    state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? "true" : "false"
+  );
   elements.bpmInput.value = state.bpm;
   elements.bpmRange.value = state.bpm;
   elements.metronomeToggle.checked = state.metronomeEnabled;
@@ -389,9 +490,11 @@ function render() {
 }
 
 function renderGrid() {
+  const subdivisions = getSubdivisions();
   elements.grid.innerHTML = "";
+  elements.grid.dataset.mode = state.subdivisionMode;
 
-  COUNTS.forEach((count, index) => {
+  subdivisions.forEach(({ count, direction }, index) => {
     const slot = document.createElement("button");
     const classes = ["slot"];
 
@@ -408,12 +511,12 @@ function renderGrid() {
     slot.setAttribute("aria-pressed", state.active[index] ? "true" : "false");
     slot.setAttribute(
       "aria-label",
-      `${count} ${DIRECTIONS[index]} ${state.active[index] ? "selected" : "not selected"}`
+      `${count} ${direction} ${state.active[index] ? "selected" : "not selected"}`
     );
 
     slot.innerHTML = `
       <div class="slot-number">${count}</div>
-      <div class="slot-direction">${DIRECTIONS[index]}</div>
+      <div class="slot-direction">${direction}</div>
     `;
 
     slot.addEventListener("click", () => toggleSlot(index));
@@ -422,9 +525,10 @@ function renderGrid() {
 }
 
 function renderPatternText() {
-  const parts = COUNTS.map((count, index) => {
+  const subdivisions = getSubdivisions();
+  const parts = subdivisions.map(({ count, direction }, index) => {
     if (state.active[index]) {
-      return `<strong>${count} ${DIRECTIONS[index]}</strong>`;
+      return `<strong>${count} ${direction}</strong>`;
     }
 
     return `${count} -`;
@@ -435,8 +539,10 @@ function renderPatternText() {
 
 function updateMetronomeStatus() {
   const isRunning = Boolean(state.timerId);
+  const subdivisions = getSubdivisions();
   const stepLabel =
-    state.currentStep >= 0 ? `${COUNTS[state.currentStep]} ${DIRECTIONS[state.currentStep]}` : "Ready";
+    state.currentStep >= 0 ? `${subdivisions[state.currentStep].count} ${subdivisions[state.currentStep].direction}` : "Ready";
+  const pulseLabel = state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? "Sixteenth-note pulse" : "Eighth-note pulse";
 
   elements.playBtn.textContent = isRunning ? "Playing" : "Start";
   elements.playBtn.setAttribute("aria-pressed", isRunning ? "true" : "false");
@@ -444,7 +550,7 @@ function updateMetronomeStatus() {
   if (!isRunning) {
     setMetronomeStatus({
       title: "Stopped",
-      detail: "Eighth-note pulse",
+      detail: pulseLabel,
       bpm: state.bpm,
     });
     return;
@@ -506,6 +612,14 @@ function setMetronomeStatus({ title, detail, bpm }) {
   `;
 }
 
+function convertPatternToMode(pattern, nextMode) {
+  if (nextMode === SUBDIVISION_MODES.sixteenth) {
+    return Array.from({ length: 16 }, (_, index) => (index % 2 === 0 ? Boolean(pattern[index / 2]) : false));
+  }
+
+  return Array.from({ length: 8 }, (_, index) => Boolean(pattern[index * 2]));
+}
+
 function toggleSlot(index) {
   state.active[index] = !state.active[index];
   syncStoredState();
@@ -513,14 +627,41 @@ function toggleSlot(index) {
 }
 
 function setPattern(nextPattern) {
-  state.active = sanitizeActivePattern(nextPattern);
+  state.active = sanitizeActivePattern(nextPattern, state.subdivisionMode);
   syncStoredState();
   render();
 }
 
+function setSubdivisionMode(nextMode) {
+  const sanitizedMode = sanitizeSubdivisionMode(nextMode);
+
+  if (sanitizedMode === state.subdivisionMode) {
+    return;
+  }
+
+  const wasRunning = Boolean(state.timerId);
+  if (wasRunning) {
+    stopMetronome();
+  }
+
+  state.subdivisionMode = sanitizedMode;
+  state.active = sanitizeActivePattern(convertPatternToMode(state.active, sanitizedMode), sanitizedMode);
+  tapTempoTimestamps = [];
+  applyStateToControls();
+  syncStoredState();
+  render();
+
+  if (wasRunning) {
+    startMetronome();
+  }
+}
+
 function randomizePattern() {
+  const subdivisions = getSubdivisions();
   const randomized = state.active.map((_, index) => {
-    const shouldPlay = index % 2 === 0 ? Math.random() > 0.28 : Math.random() > 0.55;
+    const isDownStrum = subdivisions[index].direction === "D";
+    const threshold = state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? (isDownStrum ? 0.5 : 0.72) : isDownStrum ? 0.28 : 0.55;
+    const shouldPlay = Math.random() > threshold;
     return shouldPlay;
   });
 
@@ -574,7 +715,7 @@ function commitBpmInputValue() {
 }
 
 function getStepIntervalMs() {
-  return 30000 / state.bpm;
+  return state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? 15000 / state.bpm : 30000 / state.bpm;
 }
 
 function ensureAudioContext() {
@@ -617,7 +758,7 @@ function playMetronomeClick(stepIndex) {
     return;
   }
 
-  const isDownBeat = stepIndex % 2 === 0;
+  const isDownBeat = getSubdivisions()[stepIndex].direction === "D";
   if ((isDownBeat && !state.metronomeDownEnabled) || (!isDownBeat && !state.metronomeUpEnabled)) {
     return;
   }
@@ -635,7 +776,7 @@ function playStrumSound(stepIndex) {
     return;
   }
 
-  const isDownStrum = DIRECTIONS[stepIndex] === "D";
+  const isDownStrum = getSubdivisions()[stepIndex].direction === "D";
   if ((isDownStrum && !state.strumDownEnabled) || (!isDownStrum && !state.strumUpEnabled)) {
     return;
   }
@@ -649,7 +790,7 @@ function playStrumSound(stepIndex) {
 }
 
 function tick() {
-  state.currentStep = (state.currentStep + 1) % COUNTS.length;
+  state.currentStep = (state.currentStep + 1) % getSubdivisionCount();
   playMetronomeClick(state.currentStep);
   playStrumSound(state.currentStep);
   render();
@@ -714,6 +855,19 @@ function fillPattern() {
   setPattern(state.active.map(() => true));
 }
 
+function getPresetPattern(presetName, mode = state.subdivisionMode) {
+  const basePattern = PRESETS[presetName];
+  if (!basePattern) {
+    return null;
+  }
+
+  if (mode === SUBDIVISION_MODES.eighth) {
+    return [...basePattern];
+  }
+
+  return convertPatternToMode(basePattern, mode);
+}
+
 function attachEventListeners() {
   elements.randomizeBtn.addEventListener("click", randomizePattern);
   elements.clearBtn.addEventListener("click", clearPattern);
@@ -721,6 +875,12 @@ function attachEventListeners() {
   elements.playBtn.addEventListener("click", startMetronome);
   elements.stopBtn.addEventListener("click", stopMetronome);
   elements.tapTempoBtn.addEventListener("click", registerTapTempo);
+  elements.eighthModeBtn.addEventListener("click", () => {
+    setSubdivisionMode(SUBDIVISION_MODES.eighth);
+  });
+  elements.sixteenthModeBtn.addEventListener("click", () => {
+    setSubdivisionMode(SUBDIVISION_MODES.sixteenth);
+  });
   elements.copyShareBtn.addEventListener("click", copyShareLink);
 
   elements.bpmInput.addEventListener("input", (event) => {
@@ -769,7 +929,7 @@ function attachEventListeners() {
   elements.presetButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const presetName = button.getAttribute("data-preset");
-      setPattern(PRESETS[presetName]);
+      setPattern(getPresetPattern(presetName));
     });
   });
 
@@ -779,8 +939,29 @@ function attachEventListeners() {
       return;
     }
 
-    if (event.key >= "1" && event.key <= "8") {
-      toggleSlot(Number(event.key) - 1);
+    const slotShortcutMap = {
+      1: 0,
+      2: 1,
+      3: 2,
+      4: 3,
+      5: 4,
+      6: 5,
+      7: 6,
+      8: 7,
+      q: 8,
+      w: 9,
+      e: 10,
+      r: 11,
+      a: 12,
+      s: 13,
+      d: 14,
+      f: 15,
+    };
+    const slotIndex = slotShortcutMap[event.key.toLowerCase()];
+
+    if (Number.isInteger(slotIndex) && slotIndex < state.active.length) {
+      toggleSlot(slotIndex);
+      return;
     }
 
     if (event.code === "Space") {

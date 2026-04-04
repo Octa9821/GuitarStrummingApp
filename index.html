@@ -50,6 +50,11 @@
         <section class="control-card" aria-label="Tempo controls">
           <h3>Tempo</h3>
           <div class="card-controls">
+            <div class="mode-toggle" aria-label="Subdivision mode">
+              <button class="mode-button" id="eighthModeBtn" type="button" aria-pressed="true">8th Notes</button>
+              <button class="mode-button" id="sixteenthModeBtn" type="button" aria-pressed="false">16th Notes</button>
+            </div>
+
             <label class="field field-compact" for="bpmInput">
               <span>BPM</span>
               <input id="bpmInput" type="number" min="40" max="220" value="90" />
@@ -146,7 +151,7 @@
 
     <section class="legend" aria-label="Keyboard shortcuts">
       <div class="pill">Click a slot to toggle it</div>
-      <div class="pill">Keyboard: 1-8 toggles slots</div>
+      <div class="pill">Keyboard: 1-8, then Q-R / A-F in 16th mode</div>
       <div class="pill">Space = start/stop</div>
       <div class="pill">T = tap tempo</div>
       <div class="pill">R = randomize</div>

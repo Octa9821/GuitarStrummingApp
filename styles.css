@@ -102,6 +102,24 @@ h1 {
   gap: 10px;
 }
 
+.mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mode-button {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.mode-button[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.22), rgba(96, 165, 250, 0.1));
+  border-color: rgba(96, 165, 250, 0.45);
+  color: #dbeafe;
+}
+
 .card-controls-buttons {
   align-items: stretch;
 }
@@ -343,6 +361,25 @@ button.secondary {
   margin-bottom: 18px;
 }
 
+.grid[data-mode="16th"] {
+  grid-template-columns: repeat(16, minmax(52px, 1fr));
+  gap: 10px;
+}
+
+.grid[data-mode="16th"] .slot {
+  min-height: 132px;
+  padding: 16px 6px 14px;
+  gap: 10px;
+}
+
+.grid[data-mode="16th"] .slot-number {
+  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+}
+
+.grid[data-mode="16th"] .slot-direction {
+  font-size: clamp(1.3rem, 2.8vw, 2.1rem);
+}
+
 .slot {
   position: relative;
   display: flex;
@@ -490,6 +527,11 @@ button.secondary {
     gap: 12px;
   }
 
+  .grid[data-mode="16th"] {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 10px;
+  }
+
   .slot {
     min-height: 120px;
   }
@@ -556,6 +598,10 @@ button.secondary {
     gap: 10px;
   }
 
+  .mode-toggle {
+    grid-template-columns: 1fr;
+  }
+
   .slot {
     min-height: 108px;
     border-radius: 18px;
@@ -593,6 +639,11 @@ button.secondary {
     gap: 8px;
   }
 
+  .grid[data-mode="16th"] {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
   .slot {
     min-height: 64px;
     padding: 10px 12px 9px;
@@ -606,6 +657,20 @@ button.secondary {
 
   .slot-direction {
     font-size: clamp(1.15rem, 5vw, 1.65rem);
+  }
+
+  .grid[data-mode="16th"] .slot {
+    min-height: 56px;
+    padding: 8px 10px 8px;
+    gap: 4px;
+  }
+
+  .grid[data-mode="16th"] .slot-number {
+    font-size: clamp(1.15rem, 5vw, 1.65rem);
+  }
+
+  .grid[data-mode="16th"] .slot-direction {
+    font-size: clamp(0.95rem, 4vw, 1.25rem);
   }
 
   .share-bar {
@@ -627,6 +692,10 @@ button.secondary {
     gap: 10px;
   }
 
+  .grid[data-mode="16th"] {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+
   .slot {
     min-height: 104px;
     padding: 14px 6px 12px;
@@ -639,5 +708,18 @@ button.secondary {
 
   .slot-direction {
     font-size: clamp(1.3rem, 3vw, 2rem);
+  }
+
+  .grid[data-mode="16th"] .slot {
+    min-height: 92px;
+    padding: 12px 6px 10px;
+  }
+
+  .grid[data-mode="16th"] .slot-number {
+    font-size: clamp(1.35rem, 3vw, 2rem);
+  }
+
+  .grid[data-mode="16th"] .slot-direction {
+    font-size: clamp(1rem, 2.2vw, 1.5rem);
   }
 }
