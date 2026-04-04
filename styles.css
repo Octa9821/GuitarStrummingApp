@@ -138,6 +138,42 @@ h1 {
   line-height: 1.5;
 }
 
+.panel-sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.preset-panel {
+  margin-bottom: 18px;
+}
+
+.preset-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.preset-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.preset-button.is-active {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.08));
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #dcfce7;
+}
+
 .tooltip {
   position: relative;
   display: inline-flex;
@@ -513,6 +549,10 @@ button.secondary {
     align-items: stretch;
   }
 
+  .preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .controls > button {
     width: 100%;
   }
@@ -546,6 +586,11 @@ button.secondary {
 
   .share-bar {
     align-items: stretch;
+  }
+
+  .preset-panel-header {
+    flex-direction: column;
+    margin-bottom: 12px;
   }
 
   .share-bar button,
@@ -599,6 +644,10 @@ button.secondary {
   }
 
   .mode-toggle {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-grid {
     grid-template-columns: 1fr;
   }
 

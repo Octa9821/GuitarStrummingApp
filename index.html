@@ -137,9 +137,16 @@
       <button class="primary" id="randomizeBtn" type="button">Randomize</button>
       <button id="clearBtn" type="button">Clear</button>
       <button id="fillBtn" type="button">Fill All</button>
-      <button class="secondary" data-preset="basic-rock" type="button">Preset: Basic Rock</button>
-      <button class="secondary" data-preset="island" type="button">Preset: Island</button>
-      <button class="secondary" data-preset="syncopated" type="button">Preset: Syncopated</button>
+    </section>
+
+    <section class="panel preset-panel" aria-label="Pattern presets">
+      <div class="preset-panel-header">
+        <div>
+          <h2>Preset Library</h2>
+          <p class="panel-sub" id="presetModeLabel">8th-note presets</p>
+        </div>
+      </div>
+      <div class="preset-grid" id="presetGrid"></div>
     </section>
 
     <section class="share-bar" aria-label="Share pattern">

@@ -23,11 +23,92 @@ const DEFAULT_STATE = {
 
 const DEFAULT_SHARE_STATUS = "Link updates automatically as you edit.";
 
-const PRESETS = {
-  "basic-rock": [true, false, true, true, true, false, true, true],
-  island: [true, false, false, true, true, false, false, true],
-  syncopated: [true, true, false, true, true, false, true, false],
-};
+const PRESETS = [
+  {
+    id: "basic-rock",
+    label: "Basic Rock",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [true, false, true, true, true, false, true, true],
+  },
+  {
+    id: "island",
+    label: "Island",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [true, false, false, true, true, false, false, true],
+  },
+  {
+    id: "old-faithful",
+    label: "Old Faithful",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [true, false, true, true, false, true, true, false],
+  },
+  {
+    id: "syncopated",
+    label: "Syncopated",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [true, true, false, true, true, false, true, false],
+  },
+  {
+    id: "straight-eighths",
+    label: "Straight Eighths",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [true, true, true, true, true, true, true, true],
+  },
+  {
+    id: "downbeat-drive",
+    label: "Downbeat Drive",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [true, false, true, false, true, false, true, false],
+  },
+  {
+    id: "reggae-lift",
+    label: "Reggae Lift",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [false, true, false, true, false, true, false, true],
+  },
+  {
+    id: "pop-push",
+    label: "Pop Push",
+    mode: SUBDIVISION_MODES.eighth,
+    pattern: [true, false, true, true, true, true, true, false],
+  },
+  {
+    id: "straight-16ths",
+    label: "Straight 16ths",
+    mode: SUBDIVISION_MODES.sixteenth,
+    pattern: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true],
+  },
+  {
+    id: "funk-pocket",
+    label: "Funk Pocket",
+    mode: SUBDIVISION_MODES.sixteenth,
+    pattern: [true, false, true, false, true, false, false, true, true, false, true, false, true, false, false, true],
+  },
+  {
+    id: "gallop",
+    label: "Gallop",
+    mode: SUBDIVISION_MODES.sixteenth,
+    pattern: [true, true, true, false, true, true, true, false, true, true, true, false, true, true, true, false],
+  },
+  {
+    id: "offbeat-funk",
+    label: "Offbeat Funk",
+    mode: SUBDIVISION_MODES.sixteenth,
+    pattern: [false, true, true, false, true, false, true, false, false, true, true, false, true, false, true, false],
+  },
+  {
+    id: "syncopated-16ths",
+    label: "Syncopated 16ths",
+    mode: SUBDIVISION_MODES.sixteenth,
+    pattern: [true, false, false, true, true, false, true, false, false, true, true, false, true, false, false, true],
+  },
+  {
+    id: "choppy-16ths",
+    label: "Choppy 16ths",
+    mode: SUBDIVISION_MODES.sixteenth,
+    pattern: [true, false, true, false, false, true, false, true, true, false, true, false, false, true, false, true],
+  },
+];
 
 const elements = {
   grid: document.getElementById("grid"),
@@ -53,7 +134,8 @@ const elements = {
   metronomeStatus: document.getElementById("metronomeStatus"),
   copyShareBtn: document.getElementById("copyShareBtn"),
   shareStatus: document.getElementById("shareStatus"),
-  presetButtons: document.querySelectorAll("[data-preset]"),
+  presetModeLabel: document.getElementById("presetModeLabel"),
+  presetGrid: document.getElementById("presetGrid"),
 };
 
 const state = {
@@ -68,6 +150,7 @@ let tapTempoTimestamps = [];
 applyStateToControls();
 attachEventListeners();
 syncShareUrl();
+renderPresetLibrary();
 render();
 
 function getInitialState() {
@@ -489,6 +572,35 @@ function render() {
   updateMetronomeStatus();
 }
 
+function renderPresetLibrary() {
+  const visiblePresets = PRESETS.filter((preset) => preset.mode === state.subdivisionMode);
+  const modeLabel = state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? "16th-note presets" : "8th-note presets";
+
+  elements.presetModeLabel.textContent = `${modeLabel} • ${visiblePresets.length} patterns`;
+  elements.presetGrid.innerHTML = visiblePresets
+    .map(
+      (preset) => `
+        <button
+          class="secondary preset-button ${isPresetActive(preset) ? "is-active" : ""}"
+          data-preset-id="${preset.id}"
+          type="button"
+          aria-pressed="${isPresetActive(preset) ? "true" : "false"}"
+        >
+          ${preset.label}
+        </button>
+      `
+    )
+    .join("");
+}
+
+function isPresetActive(preset) {
+  return (
+    preset.mode === state.subdivisionMode &&
+    preset.pattern.length === state.active.length &&
+    preset.pattern.every((slot, index) => slot === state.active[index])
+  );
+}
+
 function renderGrid() {
   const subdivisions = getSubdivisions();
   elements.grid.innerHTML = "";
@@ -623,12 +735,18 @@ function convertPatternToMode(pattern, nextMode) {
 function toggleSlot(index) {
   state.active[index] = !state.active[index];
   syncStoredState();
+  renderPresetLibrary();
   render();
 }
 
 function setPattern(nextPattern) {
+  if (!Array.isArray(nextPattern)) {
+    return;
+  }
+
   state.active = sanitizeActivePattern(nextPattern, state.subdivisionMode);
   syncStoredState();
+  renderPresetLibrary();
   render();
 }
 
@@ -649,6 +767,7 @@ function setSubdivisionMode(nextMode) {
   tapTempoTimestamps = [];
   applyStateToControls();
   syncStoredState();
+  renderPresetLibrary();
   render();
 
   if (wasRunning) {
@@ -855,17 +974,13 @@ function fillPattern() {
   setPattern(state.active.map(() => true));
 }
 
-function getPresetPattern(presetName, mode = state.subdivisionMode) {
-  const basePattern = PRESETS[presetName];
-  if (!basePattern) {
+function getPresetPattern(presetId, mode = state.subdivisionMode) {
+  const preset = PRESETS.find((candidate) => candidate.id === presetId && candidate.mode === mode);
+  if (!preset) {
     return null;
   }
 
-  if (mode === SUBDIVISION_MODES.eighth) {
-    return [...basePattern];
-  }
-
-  return convertPatternToMode(basePattern, mode);
+  return [...preset.pattern];
 }
 
 function attachEventListeners() {
@@ -926,11 +1041,14 @@ function attachEventListeners() {
     updateVolumeState("strumVolume", event.target.value);
   });
 
-  elements.presetButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const presetName = button.getAttribute("data-preset");
-      setPattern(getPresetPattern(presetName));
-    });
+  elements.presetGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-preset-id]");
+    if (!button) {
+      return;
+    }
+
+    const presetId = button.getAttribute("data-preset-id");
+    setPattern(getPresetPattern(presetId));
   });
 
   window.addEventListener("keydown", (event) => {
