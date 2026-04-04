@@ -27,8 +27,21 @@
       <div class="metronome-controls">
         <button class="primary" id="playBtn" type="button">Start</button>
         <button id="stopBtn" type="button">Stop</button>
+        <div class="tooltip">
+          <button
+            class="secondary"
+            id="tapTempoBtn"
+            type="button"
+            aria-describedby="tapTempoHint"
+          >
+            Tap Tempo
+          </button>
+          <div class="tooltip-bubble" id="tapTempoHint" role="tooltip">
+            Tap at least twice in quarter notes. The app averages your last few taps and resets after a short pause.
+          </div>
+        </div>
 
-        <label class="field" for="bpmInput">
+        <label class="field field-compact" for="bpmInput">
           <span>BPM</span>
           <input id="bpmInput" type="number" min="40" max="220" value="90" />
         </label>
@@ -82,6 +95,7 @@
       <div class="pill">Click a slot to toggle it</div>
       <div class="pill">Keyboard: 1-8 toggles slots</div>
       <div class="pill">Space = start/stop</div>
+      <div class="pill">T = tap tempo</div>
       <div class="pill">R = randomize</div>
       <div class="pill">C = clear</div>
     </section>

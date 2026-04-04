@@ -90,6 +90,50 @@ h1 {
   line-height: 1.5;
 }
 
+.tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 10;
+  width: min(260px, 70vw);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  color: #dbeafe;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(6px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.tooltip-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid rgba(96, 165, 250, 0.35);
+  border-bottom: 1px solid rgba(96, 165, 250, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.tooltip:hover .tooltip-bubble,
+.tooltip:focus-within .tooltip-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 button {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
@@ -138,7 +182,8 @@ button.secondary {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  min-height: 52px;
+  padding: 8px 12px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
@@ -149,14 +194,26 @@ button.secondary {
   white-space: nowrap;
 }
 
+.field-compact {
+  min-height: 48px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 .field input[type="number"] {
   width: 82px;
-  min-height: 42px;
-  padding: 8px 10px;
+  height: 36px;
+  padding: 6px 10px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: rgba(15, 23, 42, 0.8);
   color: var(--text);
+}
+
+.field-compact input[type="number"] {
+  height: 32px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .field input[type="range"] {
@@ -170,9 +227,19 @@ button.secondary {
 }
 
 .status {
+  display: inline-flex;
+  align-items: center;
   color: var(--muted);
   font-size: 0.95rem;
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  min-width: 18ch;
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .grid {
@@ -317,7 +384,8 @@ button.secondary {
   }
 
   .metronome-controls > button,
-  .controls > button {
+  .controls > button,
+  .tooltip {
     width: 100%;
   }
 
@@ -349,6 +417,10 @@ button.secondary {
   .share-bar button,
   .share-status {
     width: 100%;
+  }
+
+  .tooltip-bubble {
+    display: none;
   }
 
   .field input[type="range"] {

@@ -2,6 +2,8 @@ const COUNTS = ["1", "+", "2", "+", "3", "+", "4", "+"];
 const DIRECTIONS = ["D", "U", "D", "U", "D", "U", "D", "U"];
 const STORAGE_KEY = "strumming-pattern-builder:state";
 const SHARE_STATUS_TIMEOUT_MS = 2200;
+const TAP_TEMPO_RESET_MS = 2200;
+const TAP_TEMPO_SAMPLE_LIMIT = 6;
 
 const DEFAULT_STATE = {
   active: [true, false, true, false, true, false, true, false],
@@ -28,6 +30,7 @@ const elements = {
   fillBtn: document.getElementById("fillBtn"),
   playBtn: document.getElementById("playBtn"),
   stopBtn: document.getElementById("stopBtn"),
+  tapTempoBtn: document.getElementById("tapTempoBtn"),
   bpmInput: document.getElementById("bpmInput"),
   bpmRange: document.getElementById("bpmRange"),
   metronomeToggle: document.getElementById("metronomeToggle"),
@@ -47,6 +50,7 @@ const state = {
   audioContext: null,
 };
 let shareStatusTimerId = null;
+let tapTempoTimestamps = [];
 
 applyStateToControls();
 attachEventListeners();
@@ -389,6 +393,37 @@ function updateMetronomeStatus() {
   elements.metronomeStatus.textContent = `Playing at ${state.bpm} BPM · current step: ${stepLabel}`;
 }
 
+function registerTapTempo() {
+  const now = Date.now();
+  const lastTap = tapTempoTimestamps.at(-1);
+
+  if (lastTap && now - lastTap > TAP_TEMPO_RESET_MS) {
+    tapTempoTimestamps = [];
+  }
+
+  tapTempoTimestamps.push(now);
+
+  if (tapTempoTimestamps.length > TAP_TEMPO_SAMPLE_LIMIT) {
+    tapTempoTimestamps = tapTempoTimestamps.slice(-TAP_TEMPO_SAMPLE_LIMIT);
+  }
+
+  if (tapTempoTimestamps.length < 2) {
+    elements.metronomeStatus.textContent = "Tap again to set the tempo.";
+    return;
+  }
+
+  const intervals = [];
+  for (let index = 1; index < tapTempoTimestamps.length; index += 1) {
+    intervals.push(tapTempoTimestamps[index] - tapTempoTimestamps[index - 1]);
+  }
+
+  const averageIntervalMs = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+  const tappedBpm = Math.round(60000 / averageIntervalMs);
+
+  syncBpm(tappedBpm);
+  elements.metronomeStatus.textContent = `Tapped tempo · ${state.bpm} BPM`;
+}
+
 function toggleSlot(index) {
   state.active[index] = !state.active[index];
   syncStoredState();
@@ -595,6 +630,7 @@ function attachEventListeners() {
   elements.fillBtn.addEventListener("click", fillPattern);
   elements.playBtn.addEventListener("click", startMetronome);
   elements.stopBtn.addEventListener("click", stopMetronome);
+  elements.tapTempoBtn.addEventListener("click", registerTapTempo);
   elements.copyShareBtn.addEventListener("click", copyShareLink);
 
   elements.bpmInput.addEventListener("input", (event) => {
@@ -644,6 +680,10 @@ function attachEventListeners() {
     if (event.code === "Space") {
       event.preventDefault();
       toggleMetronome();
+    }
+
+    if (event.key.toLowerCase() === "t") {
+      registerTapTempo();
     }
 
     if (event.key.toLowerCase() === "r") {
