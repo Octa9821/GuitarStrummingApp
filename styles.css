@@ -160,6 +160,14 @@ h1 {
   line-height: 1.45;
 }
 
+.about-panel {
+  margin-top: 18px;
+}
+
+.about-panel .panel-sub {
+  max-width: 68ch;
+}
+
 .preset-panel {
   margin-bottom: 18px;
 }
