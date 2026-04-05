@@ -9,10 +9,13 @@ const TAP_TEMPO_SAMPLE_LIMIT = 6;
 const SCHEDULER_LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_SECONDS = 0.12;
 const FIRST_NOTE_LEAD_SECONDS = 0.04;
+const DESKTOP_TWO_BAR_QUERY = "(min-width: 900px)";
 const DEFAULT_STATE = {
   subdivisionMode: SUBDIVISION_MODES.eighth,
   active: [true, false, true, false, true, false, true, false],
+  activeBarTwo: [true, false, true, false, true, false, true, false],
   bpm: 90,
+  loopBars: 1,
   countInEnabled: false,
   practiceRampEnabled: false,
   practiceRampStepBpm: 2,
@@ -118,11 +121,21 @@ const PRESETS = [
 
 const elements = {
   grid: document.getElementById("grid"),
+  barGridStack: document.getElementById("barGridStack"),
+  barOneGrid: document.getElementById("barOneGrid"),
+  barTwoGrid: document.getElementById("barTwoGrid"),
+  barOneCard: document.getElementById("barOneCard"),
+  barTwoCard: document.getElementById("barTwoCard"),
   patternText: document.getElementById("patternText"),
   randomizeBtn: document.getElementById("randomizeBtn"),
   clearBtn: document.getElementById("clearBtn"),
   fillBtn: document.getElementById("fillBtn"),
   playBtn: document.getElementById("playBtn"),
+  oneBarLoopBtn: document.getElementById("oneBarLoopBtn"),
+  twoBarLoopBtn: document.getElementById("twoBarLoopBtn"),
+  editorBarToggle: document.getElementById("editorBarToggle"),
+  editBarOneBtn: document.getElementById("editBarOneBtn"),
+  editBarTwoBtn: document.getElementById("editBarTwoBtn"),
   tapTempoBtn: document.getElementById("tapTempoBtn"),
   eighthModeBtn: document.getElementById("eighthModeBtn"),
   sixteenthModeBtn: document.getElementById("sixteenthModeBtn"),
@@ -161,9 +174,13 @@ const state = {
   countInScheduledBeat: 0,
   completedBars: 0,
   playbackStartBpm: null,
+  currentLoopBar: 1,
+  nextLoopBar: 1,
+  currentEditorBar: 1,
 };
 let shareStatusTimerId = null;
 let tapTempoTimestamps = [];
+const desktopTwoBarMediaQuery = window.matchMedia(DESKTOP_TWO_BAR_QUERY);
 
 applyStateToControls();
 attachEventListeners();
@@ -197,7 +214,9 @@ function loadStateFromUrl() {
 
   const subdivisionMode = parseSubdivisionMode(params.get("m")) ?? inferSubdivisionModeFromPattern(params.get("p"));
   const pattern = decodePattern(params.get("p"), subdivisionMode ?? DEFAULT_STATE.subdivisionMode);
+  const patternBarTwo = decodePattern(params.get("p2"), subdivisionMode ?? DEFAULT_STATE.subdivisionMode);
   const bpm = parseNumberParam(params.get("b"));
+  const loopBars = parseNumberParam(params.get("lb"));
   const countInEnabled = parseBooleanParam(params.get("ci"));
   const practiceRampEnabled = parseBooleanParam(params.get("pr"));
   const practiceRampStepBpm = parseNumberParam(params.get("ps"));
@@ -215,6 +234,7 @@ function loadStateFromUrl() {
     pattern === null &&
     subdivisionMode === null &&
     bpm === null &&
+    loopBars === null &&
     countInEnabled === null &&
     practiceRampEnabled === null &&
     practiceRampStepBpm === null &&
@@ -234,7 +254,9 @@ function loadStateFromUrl() {
   return sanitizePartialSerializableState({
     subdivisionMode,
     active: pattern,
+    activeBarTwo: patternBarTwo ?? (loopBars === 2 ? pattern : null),
     bpm,
+    loopBars,
     countInEnabled,
     practiceRampEnabled,
     practiceRampStepBpm,
@@ -269,7 +291,9 @@ function getSerializableState() {
   return {
     subdivisionMode: state.subdivisionMode,
     active: [...state.active],
+    activeBarTwo: [...state.activeBarTwo],
     bpm: state.bpm,
+    loopBars: state.loopBars,
     countInEnabled: state.countInEnabled,
     practiceRampEnabled: state.practiceRampEnabled,
     practiceRampStepBpm: state.practiceRampStepBpm,
@@ -291,7 +315,9 @@ function sanitizeSerializableState(candidate = {}) {
   return {
     subdivisionMode,
     active: sanitizeActivePattern(candidate.active, subdivisionMode),
+    activeBarTwo: sanitizeActivePattern(candidate.activeBarTwo ?? candidate.active, subdivisionMode),
     bpm: clampBpm(candidate.bpm),
+    loopBars: clampLoopBars(candidate.loopBars),
     countInEnabled: getBooleanSetting(candidate.countInEnabled, DEFAULT_STATE.countInEnabled),
     practiceRampEnabled: getBooleanSetting(candidate.practiceRampEnabled, DEFAULT_STATE.practiceRampEnabled),
     practiceRampStepBpm: clampPracticeRampStep(candidate.practiceRampStepBpm),
@@ -317,7 +343,14 @@ function sanitizePartialSerializableState(candidate = {}) {
   return {
     subdivisionMode,
     active: candidate.active === null ? null : sanitizeActivePattern(candidate.active, activeMode),
+    activeBarTwo:
+      candidate.activeBarTwo === null
+        ? null
+        : candidate.activeBarTwo === undefined
+          ? null
+          : sanitizeActivePattern(candidate.activeBarTwo, activeMode),
     bpm: candidate.bpm === null ? null : clampBpm(candidate.bpm),
+    loopBars: candidate.loopBars === null ? null : clampLoopBars(candidate.loopBars),
     countInEnabled:
       candidate.countInEnabled === null
         ? null
@@ -375,11 +408,18 @@ function mergeSerializableState(...candidates) {
       (nextSubdivisionMode !== merged.subdivisionMode
         ? convertPatternToMode(merged.active, nextSubdivisionMode)
         : merged.active);
+    const nextActiveBarTwo =
+      candidate.activeBarTwo ??
+      (nextSubdivisionMode !== merged.subdivisionMode
+        ? convertPatternToMode(merged.activeBarTwo, nextSubdivisionMode)
+        : merged.activeBarTwo);
 
     return sanitizeSerializableState({
       subdivisionMode: nextSubdivisionMode,
       active: nextActive,
+      activeBarTwo: nextActiveBarTwo,
       bpm: candidate.bpm ?? merged.bpm,
+      loopBars: candidate.loopBars ?? merged.loopBars,
       countInEnabled: candidate.countInEnabled ?? merged.countInEnabled,
       practiceRampEnabled: candidate.practiceRampEnabled ?? merged.practiceRampEnabled,
       practiceRampStepBpm: candidate.practiceRampStepBpm ?? merged.practiceRampStepBpm,
@@ -488,6 +528,15 @@ function clampPracticeRampBars(value) {
   return Math.min(16, Math.max(1, Math.round(numeric)));
 }
 
+function clampLoopBars(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_STATE.loopBars;
+  }
+
+  return numeric >= 2 ? 2 : 1;
+}
+
 function getBooleanSetting(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -563,7 +612,11 @@ function buildShareUrl() {
   url.search = "";
   url.searchParams.set("m", serializableState.subdivisionMode);
   url.searchParams.set("p", encodePattern(serializableState.active));
+  if (serializableState.loopBars === 2) {
+    url.searchParams.set("p2", encodePattern(serializableState.activeBarTwo));
+  }
   url.searchParams.set("b", String(serializableState.bpm));
+  url.searchParams.set("lb", String(serializableState.loopBars));
   url.searchParams.set("ci", serializableState.countInEnabled ? "1" : "0");
   url.searchParams.set("pr", serializableState.practiceRampEnabled ? "1" : "0");
   url.searchParams.set("ps", String(serializableState.practiceRampStepBpm));
@@ -630,6 +683,10 @@ function applyStateToControls() {
     "aria-pressed",
     state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? "true" : "false"
   );
+  elements.oneBarLoopBtn.setAttribute("aria-pressed", state.loopBars === 1 ? "true" : "false");
+  elements.twoBarLoopBtn.setAttribute("aria-pressed", state.loopBars === 2 ? "true" : "false");
+  elements.editorBarToggle.hidden = state.loopBars !== 2 || shouldUseDualGridView();
+  updateEditorBarControls();
   elements.bpmInput.value = state.bpm;
   elements.bpmRange.value = state.bpm;
   elements.countInToggle.checked = state.countInEnabled;
@@ -650,6 +707,7 @@ function applyStateToControls() {
 function render() {
   renderGrid();
   renderPatternText();
+  updateEditorBarControls();
   updateMetronomeStatus();
 }
 
@@ -677,57 +735,92 @@ function renderPresetLibrary() {
 function isPresetActive(preset) {
   return (
     preset.mode === state.subdivisionMode &&
-    preset.pattern.length === state.active.length &&
-    preset.pattern.every((slot, index) => slot === state.active[index])
+    preset.pattern.length === getEditablePattern().length &&
+    preset.pattern.every((slot, index) => slot === getEditablePattern()[index])
   );
 }
 
 function renderGrid() {
+  const showDualGrid = shouldUseDualGridView();
+  elements.grid.hidden = showDualGrid;
+  elements.barGridStack.hidden = !showDualGrid;
+
+  if (showDualGrid) {
+    renderGridInto({
+      container: elements.barOneGrid,
+      pattern: state.active,
+      currentStep: state.currentLoopBar === 1 ? state.currentStep : -1,
+      barNumber: 1,
+    });
+    renderGridInto({
+      container: elements.barTwoGrid,
+      pattern: state.activeBarTwo,
+      currentStep: state.currentLoopBar === 2 ? state.currentStep : -1,
+      barNumber: 2,
+    });
+    elements.barOneCard.classList.toggle("is-editing", state.currentEditorBar === 1);
+    elements.barTwoCard.classList.toggle("is-editing", state.currentEditorBar === 2);
+    elements.barOneCard.classList.toggle("is-playing", state.timerId && state.currentLoopBar === 1);
+    elements.barTwoCard.classList.toggle("is-playing", state.timerId && state.currentLoopBar === 2);
+    return;
+  }
+
+  renderGridInto({
+    container: elements.grid,
+    pattern: getVisibleSingleGridPattern(),
+    currentStep: state.currentStep,
+    barNumber: getVisibleSingleGridBarNumber(),
+  });
+}
+
+function renderGridInto({ container, pattern, currentStep, barNumber }) {
   const subdivisions = getSubdivisions();
-  elements.grid.innerHTML = "";
-  elements.grid.dataset.mode = state.subdivisionMode;
+  container.innerHTML = "";
+  container.dataset.mode = state.subdivisionMode;
 
   subdivisions.forEach(({ count, direction }, index) => {
     const slot = document.createElement("button");
     const classes = ["slot"];
 
-    if (state.active[index]) {
+    if (pattern[index]) {
       classes.push("active");
     }
 
-    if (index === state.currentStep) {
+    if (index === currentStep) {
       classes.push("current-step");
     }
 
     slot.className = classes.join(" ");
     slot.type = "button";
-    slot.setAttribute("aria-pressed", state.active[index] ? "true" : "false");
-    slot.setAttribute(
-      "aria-label",
-      `${count} ${direction} ${state.active[index] ? "selected" : "not selected"}`
-    );
+    slot.setAttribute("aria-pressed", pattern[index] ? "true" : "false");
+    slot.setAttribute("aria-label", `Bar ${barNumber}: ${count} ${direction} ${pattern[index] ? "selected" : "not selected"}`);
 
     slot.innerHTML = `
       <div class="slot-number">${count}</div>
       <div class="slot-direction">${direction}</div>
     `;
 
-    slot.addEventListener("click", () => toggleSlot(index));
-    elements.grid.appendChild(slot);
+    slot.addEventListener("click", () => toggleSlot(index, barNumber));
+    container.appendChild(slot);
   });
 }
 
 function renderPatternText() {
-  const subdivisions = getSubdivisions();
-  const parts = subdivisions.map(({ count, direction }, index) => {
-    if (state.active[index]) {
-      return `<strong>${count} ${direction}</strong>`;
-    }
+  if (state.loopBars === 2) {
+    elements.patternText.innerHTML = `
+      <div class="pattern-group">
+        <span class="pattern-label">Bar 1</span>
+        ${formatPatternLine(state.active)}
+      </div>
+      <div class="pattern-group">
+        <span class="pattern-label">Bar 2</span>
+        ${formatPatternLine(state.activeBarTwo)}
+      </div>
+    `;
+    return;
+  }
 
-    return `${count} -`;
-  });
-
-  elements.patternText.innerHTML = parts.join(" &nbsp; • &nbsp; ");
+  elements.patternText.innerHTML = formatPatternLine(state.active);
 }
 
 function updateMetronomeStatus() {
@@ -761,8 +854,8 @@ function updateMetronomeStatus() {
   setMetronomeStatus({
     title: "Playing",
     detail: state.practiceRampEnabled
-      ? `Current step: ${stepLabel} • Ramp +${state.practiceRampStepBpm} BPM every ${state.practiceRampEveryBars} bars`
-      : `Current step: ${stepLabel}`,
+      ? `Current step: ${stepLabel}${state.loopBars === 2 ? ` • Bar ${state.currentLoopBar} of 2` : ""} • Ramp +${state.practiceRampStepBpm} BPM every ${state.practiceRampEveryBars} bars`
+      : `Current step: ${stepLabel}${state.loopBars === 2 ? ` • Bar ${state.currentLoopBar} of 2` : ""}`,
     bpm: state.bpm,
   });
 }
@@ -776,6 +869,10 @@ function getStoppedStatusDetail(pulseLabel) {
 
   if (state.practiceRampEnabled) {
     parts.push(`ramp +${state.practiceRampStepBpm} BPM every ${state.practiceRampEveryBars} bars`);
+  }
+
+  if (state.loopBars === 2) {
+    parts.push("2-bar loop");
   }
 
   return parts.join(" • ");
@@ -838,8 +935,62 @@ function convertPatternToMode(pattern, nextMode) {
   return Array.from({ length: 8 }, (_, index) => Boolean(pattern[index * 2]));
 }
 
-function toggleSlot(index) {
-  state.active[index] = !state.active[index];
+function getEditablePattern() {
+  return getPatternForBar(state.currentEditorBar);
+}
+
+function getPatternForBar(barNumber) {
+  return barNumber === 2 ? state.activeBarTwo : state.active;
+}
+
+function getVisibleSingleGridBarNumber() {
+  if (state.loopBars === 2 && state.timerId && state.transportPhase === "playing") {
+    return state.currentLoopBar;
+  }
+
+  return state.currentEditorBar;
+}
+
+function getVisibleSingleGridPattern() {
+  return getPatternForBar(getVisibleSingleGridBarNumber());
+}
+
+function shouldUseDualGridView() {
+  return state.loopBars === 2 && desktopTwoBarMediaQuery.matches;
+}
+
+function updateEditorBarControls() {
+  const visibleBar = shouldUseDualGridView() ? state.currentEditorBar : getVisibleSingleGridBarNumber();
+  elements.editBarOneBtn.setAttribute("aria-pressed", visibleBar === 1 ? "true" : "false");
+  elements.editBarTwoBtn.setAttribute("aria-pressed", visibleBar === 2 ? "true" : "false");
+}
+
+function setPatternForBar(barNumber, nextPattern) {
+  const sanitizedPattern = sanitizeActivePattern(nextPattern, state.subdivisionMode);
+  if (barNumber === 2) {
+    state.activeBarTwo = sanitizedPattern;
+    return;
+  }
+
+  state.active = sanitizedPattern;
+}
+
+function formatPatternLine(pattern) {
+  const subdivisions = getSubdivisions();
+  const parts = subdivisions.map(({ count, direction }, index) => {
+    const isActive = pattern[index];
+    const label = isActive ? `${count} ${direction}` : `${count} -`;
+    return `<span class="pattern-token ${isActive ? "is-active" : "is-rest"}">${label}</span>`;
+  });
+
+  return `<div class="pattern-tokens">${parts.join("")}</div>`;
+}
+
+function toggleSlot(index, barNumber = state.currentEditorBar) {
+  state.currentEditorBar = barNumber;
+  const nextPattern = [...getPatternForBar(barNumber)];
+  nextPattern[index] = !nextPattern[index];
+  setPatternForBar(barNumber, nextPattern);
   syncStoredState();
   renderPresetLibrary();
   render();
@@ -850,7 +1001,7 @@ function setPattern(nextPattern) {
     return;
   }
 
-  state.active = sanitizeActivePattern(nextPattern, state.subdivisionMode);
+  setPatternForBar(state.currentEditorBar, nextPattern);
   syncStoredState();
   renderPresetLibrary();
   render();
@@ -870,6 +1021,7 @@ function setSubdivisionMode(nextMode) {
 
   state.subdivisionMode = sanitizedMode;
   state.active = sanitizeActivePattern(convertPatternToMode(state.active, sanitizedMode), sanitizedMode);
+  state.activeBarTwo = sanitizeActivePattern(convertPatternToMode(state.activeBarTwo, sanitizedMode), sanitizedMode);
   tapTempoTimestamps = [];
   applyStateToControls();
   syncStoredState();
@@ -883,7 +1035,7 @@ function setSubdivisionMode(nextMode) {
 
 function randomizePattern() {
   const subdivisions = getSubdivisions();
-  const randomized = state.active.map((_, index) => {
+  const randomized = getEditablePattern().map((_, index) => {
     const isDownStrum = subdivisions[index].direction === "D";
     const threshold = state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? (isDownStrum ? 0.5 : 0.72) : isDownStrum ? 0.28 : 0.55;
     const shouldPlay = Math.random() > threshold;
@@ -937,6 +1089,42 @@ function updatePracticeRampSetting(key, value) {
   }
 
   syncStoredState();
+  render();
+}
+
+function setLoopBars(value) {
+  const nextLoopBars = clampLoopBars(value);
+  if (nextLoopBars === state.loopBars) {
+    return;
+  }
+
+  const wasRunning = Boolean(state.timerId);
+  if (wasRunning) {
+    stopMetronome();
+  }
+
+  state.loopBars = nextLoopBars;
+  if (nextLoopBars === 1) {
+    state.currentEditorBar = 1;
+  }
+  applyStateToControls();
+  syncStoredState();
+  render();
+
+  if (wasRunning) {
+    startMetronome();
+  }
+}
+
+function setEditorBar(value) {
+  const nextEditorBar = clampLoopBars(value);
+  if (state.currentEditorBar === nextEditorBar || state.loopBars !== 2) {
+    return;
+  }
+
+  state.currentEditorBar = nextEditorBar;
+  applyStateToControls();
+  renderPresetLibrary();
   render();
 }
 
@@ -1052,8 +1240,9 @@ function playMetronomeClick(stepIndex, when, options = {}) {
   });
 }
 
-function playStrumSound(stepIndex, when) {
-  if (!state.strumEnabled || !state.active[stepIndex]) {
+function playStrumSound(stepIndex, when, loopBar = 1) {
+  const activePattern = getPatternForBar(loopBar);
+  if (!state.strumEnabled || !activePattern[stepIndex]) {
     return;
   }
 
@@ -1095,12 +1284,15 @@ function scheduleUiUpdate(when, update) {
   state.uiStepTimeoutIds.push(timeoutId);
 }
 
-function scheduleStep(stepIndex, when) {
+function scheduleStep(stepIndex, when, loopBar) {
   playMetronomeClick(stepIndex, when);
-  playStrumSound(stepIndex, when);
+  playStrumSound(stepIndex, when, loopBar);
   scheduleUiUpdate(when, () => {
     state.transportPhase = "playing";
     state.countInBeat = 0;
+    if (stepIndex === 0) {
+      state.currentLoopBar = loopBar;
+    }
     state.currentStep = stepIndex;
   });
 }
@@ -1130,11 +1322,13 @@ function runScheduler() {
     }
 
     const stepIndex = state.nextStepIndex;
-    scheduleStep(stepIndex, state.nextNoteTime);
+    const loopBar = state.nextLoopBar;
+    scheduleStep(stepIndex, state.nextNoteTime, loopBar);
 
     const nextStepIndex = (stepIndex + 1) % getSubdivisionCount();
     if (nextStepIndex === 0) {
       state.completedBars += 1;
+      state.nextLoopBar = (state.nextLoopBar % state.loopBars) + 1;
       if (state.completedBars % state.practiceRampEveryBars === 0) {
         applyPracticeRampStep();
       }
@@ -1160,6 +1354,8 @@ function startMetronome() {
   state.countInBeat = 0;
   state.countInScheduledBeat = 0;
   state.completedBars = 0;
+  state.currentLoopBar = 1;
+  state.nextLoopBar = 1;
   runScheduler();
   state.timerId = window.setInterval(runScheduler, SCHEDULER_LOOKAHEAD_MS);
   updateMetronomeStatus();
@@ -1185,6 +1381,8 @@ function stopMetronome() {
   state.countInScheduledBeat = 0;
   state.completedBars = 0;
   state.playbackStartBpm = null;
+  state.currentLoopBar = 1;
+  state.nextLoopBar = 1;
   render();
 }
 
@@ -1218,11 +1416,11 @@ function updateVolumeState(key, value) {
 }
 
 function clearPattern() {
-  setPattern(state.active.map(() => false));
+  setPattern(getEditablePattern().map(() => false));
 }
 
 function fillPattern() {
-  setPattern(state.active.map(() => true));
+  setPattern(getEditablePattern().map(() => true));
 }
 
 function getPresetPattern(presetId, mode = state.subdivisionMode) {
@@ -1239,6 +1437,18 @@ function attachEventListeners() {
   elements.clearBtn.addEventListener("click", clearPattern);
   elements.fillBtn.addEventListener("click", fillPattern);
   elements.playBtn.addEventListener("click", toggleMetronome);
+  elements.oneBarLoopBtn.addEventListener("click", () => {
+    setLoopBars(1);
+  });
+  elements.twoBarLoopBtn.addEventListener("click", () => {
+    setLoopBars(2);
+  });
+  elements.editBarOneBtn.addEventListener("click", () => {
+    setEditorBar(1);
+  });
+  elements.editBarTwoBtn.addEventListener("click", () => {
+    setEditorBar(2);
+  });
   elements.tapTempoBtn.addEventListener("click", registerTapTempo);
   elements.eighthModeBtn.addEventListener("click", () => {
     setSubdivisionMode(SUBDIVISION_MODES.eighth);
@@ -1363,7 +1573,7 @@ function attachEventListeners() {
     };
     const slotIndex = slotShortcutMap[event.key.toLowerCase()];
 
-    if (Number.isInteger(slotIndex) && slotIndex < state.active.length) {
+    if (Number.isInteger(slotIndex) && slotIndex < getEditablePattern().length) {
       toggleSlot(slotIndex);
       return;
     }
@@ -1384,5 +1594,10 @@ function attachEventListeners() {
     if (event.key.toLowerCase() === "c") {
       clearPattern();
     }
+  });
+
+  desktopTwoBarMediaQuery.addEventListener("change", () => {
+    applyStateToControls();
+    render();
   });
 }

@@ -1,17 +1,21 @@
-# Guitar Strumming Pattern Builder
+# StrumLoop
 
-A lightweight browser-based practice tool for building and looping guitar strumming patterns.
+A free browser-based practice tool for building and looping guitar strumming patterns.
 
 ## Current MVP features
 
-- Clickable `1 + 2 + 3 + 4 +` strumming grid
+- 8th-note and 16th-note strumming grids
+- 1-bar and editable 2-bar phrases
 - Down-strum / up-strum direction labels
-- Built-in metronome with BPM slider and number input
+- Built-in metronome with BPM slider, number input, tap tempo, and count-in
+- Practice ramp with configurable BPM increase and bar interval
 - Separate metronome and strum playback toggles
 - Separate metronome and strum volume controls
+- Up/down sound toggles for both metronome and strum playback
 - Pattern tools: randomize, clear, fill, and presets
-- Keyboard shortcuts for slot toggles, playback, randomize, and clear
+- Shareable links for exact patterns and settings
 - `localStorage` persistence for the last-used pattern and settings
+- Mobile-friendly responsive layout
 
 ## Project structure
 

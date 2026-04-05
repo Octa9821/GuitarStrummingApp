@@ -3,21 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Guitar Strumming Pattern Builder</title>
+  <title>StrumLoop | Free Guitar Strumming Practice Tool</title>
   <meta
     name="description"
-    content="A lightweight browser-based tool for building and practicing guitar strumming patterns."
+    content="A free browser-based tool for building and practicing guitar strumming patterns with metronome, tap tempo, presets, two-bar phrases, and shareable links."
   />
+  <meta name="theme-color" content="#0f172a" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="StrumLoop | Free Guitar Strumming Practice Tool" />
+  <meta
+    property="og:description"
+    content="A free browser-based tool for building and practicing guitar strumming patterns with metronome, tap tempo, presets, two-bar phrases, and shareable links."
+  />
+  <meta property="og:site_name" content="StrumLoop" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="StrumLoop | Free Guitar Strumming Practice Tool" />
+  <meta
+    name="twitter:description"
+    content="A free browser-based tool for building and practicing guitar strumming patterns with metronome, tap tempo, presets, two-bar phrases, and shareable links."
+  />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <main class="app">
     <header class="header">
       <div>
-        <h1>Guitar Strumming Pattern Builder</h1>
+        <h1>StrumLoop</h1>
         <p class="sub">
-          Click the beats you want to strum. Numbers are <strong>down-strums</strong> and the "+" counts are
-          <strong>up-strums</strong>. Unselected beats are skipped.
+          Build and practice guitar strumming patterns in your browser.
         </p>
       </div>
     </header>
@@ -29,6 +43,14 @@
           <h3>Playback</h3>
           <div class="card-controls card-controls-buttons">
             <button class="primary" id="playBtn" type="button">Start</button>
+            <div class="mode-toggle" aria-label="Loop length">
+              <button class="mode-button" id="oneBarLoopBtn" type="button" aria-pressed="true">1 Bar</button>
+              <button class="mode-button" id="twoBarLoopBtn" type="button" aria-pressed="false">2 Bars</button>
+            </div>
+            <div class="mode-toggle" id="editorBarToggle" aria-label="Bar editor" hidden>
+              <button class="mode-button" id="editBarOneBtn" type="button" aria-pressed="true">Edit Bar 1</button>
+              <button class="mode-button" id="editBarTwoBtn" type="button" aria-pressed="false">Edit Bar 2</button>
+            </div>
             <div class="tooltip">
               <button
                 class="secondary"
@@ -184,15 +206,36 @@
       <div class="share-status" id="shareStatus">Link updates automatically as you edit.</div>
     </section>
 
-    <section class="grid" id="grid" aria-label="Strumming pattern grid"></section>
+    <section class="grid-shell" aria-label="Strumming pattern grid">
+      <div class="grid" id="grid"></div>
+
+      <div class="bar-grid-stack" id="barGridStack" hidden>
+        <article class="bar-grid-card" id="barOneCard">
+          <div class="bar-grid-header">
+            <span class="bar-grid-label">Bar 1</span>
+          </div>
+          <div class="grid" id="barOneGrid"></div>
+        </article>
+
+        <article class="bar-grid-card" id="barTwoCard">
+          <div class="bar-grid-header">
+            <span class="bar-grid-label">Bar 2</span>
+          </div>
+          <div class="grid" id="barTwoGrid"></div>
+        </article>
+      </div>
+    </section>
 
     <section class="legend" aria-label="Keyboard shortcuts">
-      <div class="pill">Click a slot to toggle it</div>
-      <div class="pill">Keyboard: 1-8, then Q-R / A-F in 16th mode</div>
-      <div class="pill">Space = start/stop</div>
-      <div class="pill">T = tap tempo</div>
-      <div class="pill">R = randomize</div>
-      <div class="pill">C = clear</div>
+      <div class="pill legend-primary-tip">
+        <span class="legend-desktop-text">Click a slot to toggle it</span>
+        <span class="legend-mobile-text">Tap a slot to toggle it</span>
+      </div>
+      <div class="pill legend-keyboard-tip">Keyboard: 1-8, then Q-R / A-F in 16th mode</div>
+      <div class="pill legend-keyboard-tip">Space = start/stop</div>
+      <div class="pill legend-keyboard-tip">T = tap tempo</div>
+      <div class="pill legend-keyboard-tip">R = randomize</div>
+      <div class="pill legend-keyboard-tip">C = clear</div>
     </section>
 
     <section class="output" aria-live="polite">
