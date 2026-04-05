@@ -9,12 +9,14 @@ const TAP_TEMPO_SAMPLE_LIMIT = 6;
 const SCHEDULER_LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_SECONDS = 0.12;
 const FIRST_NOTE_LEAD_SECONDS = 0.04;
-
 const DEFAULT_STATE = {
   subdivisionMode: SUBDIVISION_MODES.eighth,
   active: [true, false, true, false, true, false, true, false],
   bpm: 90,
   countInEnabled: false,
+  practiceRampEnabled: false,
+  practiceRampStepBpm: 2,
+  practiceRampEveryBars: 2,
   metronomeEnabled: true,
   metronomeDownEnabled: true,
   metronomeUpEnabled: true,
@@ -127,6 +129,10 @@ const elements = {
   bpmInput: document.getElementById("bpmInput"),
   bpmRange: document.getElementById("bpmRange"),
   countInToggle: document.getElementById("countInToggle"),
+  practiceRampToggle: document.getElementById("practiceRampToggle"),
+  practiceRampFields: document.getElementById("practiceRampFields"),
+  practiceRampStepInput: document.getElementById("practiceRampStepInput"),
+  practiceRampBarsInput: document.getElementById("practiceRampBarsInput"),
   metronomeToggle: document.getElementById("metronomeToggle"),
   metronomeDownToggle: document.getElementById("metronomeDownToggle"),
   metronomeUpToggle: document.getElementById("metronomeUpToggle"),
@@ -153,6 +159,8 @@ const state = {
   transportPhase: "stopped",
   countInBeat: 0,
   countInScheduledBeat: 0,
+  completedBars: 0,
+  playbackStartBpm: null,
 };
 let shareStatusTimerId = null;
 let tapTempoTimestamps = [];
@@ -191,6 +199,9 @@ function loadStateFromUrl() {
   const pattern = decodePattern(params.get("p"), subdivisionMode ?? DEFAULT_STATE.subdivisionMode);
   const bpm = parseNumberParam(params.get("b"));
   const countInEnabled = parseBooleanParam(params.get("ci"));
+  const practiceRampEnabled = parseBooleanParam(params.get("pr"));
+  const practiceRampStepBpm = parseNumberParam(params.get("ps"));
+  const practiceRampEveryBars = parseNumberParam(params.get("pb"));
   const metronomeEnabled = parseBooleanParam(params.get("mc"));
   const metronomeDownEnabled = parseBooleanParam(params.get("md"));
   const metronomeUpEnabled = parseBooleanParam(params.get("mu"));
@@ -205,6 +216,9 @@ function loadStateFromUrl() {
     subdivisionMode === null &&
     bpm === null &&
     countInEnabled === null &&
+    practiceRampEnabled === null &&
+    practiceRampStepBpm === null &&
+    practiceRampEveryBars === null &&
     metronomeEnabled === null &&
     metronomeDownEnabled === null &&
     metronomeUpEnabled === null &&
@@ -222,6 +236,9 @@ function loadStateFromUrl() {
     active: pattern,
     bpm,
     countInEnabled,
+    practiceRampEnabled,
+    practiceRampStepBpm,
+    practiceRampEveryBars,
     metronomeEnabled,
     metronomeDownEnabled,
     metronomeUpEnabled,
@@ -254,6 +271,9 @@ function getSerializableState() {
     active: [...state.active],
     bpm: state.bpm,
     countInEnabled: state.countInEnabled,
+    practiceRampEnabled: state.practiceRampEnabled,
+    practiceRampStepBpm: state.practiceRampStepBpm,
+    practiceRampEveryBars: state.practiceRampEveryBars,
     metronomeEnabled: state.metronomeEnabled,
     metronomeDownEnabled: state.metronomeDownEnabled,
     metronomeUpEnabled: state.metronomeUpEnabled,
@@ -273,6 +293,9 @@ function sanitizeSerializableState(candidate = {}) {
     active: sanitizeActivePattern(candidate.active, subdivisionMode),
     bpm: clampBpm(candidate.bpm),
     countInEnabled: getBooleanSetting(candidate.countInEnabled, DEFAULT_STATE.countInEnabled),
+    practiceRampEnabled: getBooleanSetting(candidate.practiceRampEnabled, DEFAULT_STATE.practiceRampEnabled),
+    practiceRampStepBpm: clampPracticeRampStep(candidate.practiceRampStepBpm),
+    practiceRampEveryBars: clampPracticeRampBars(candidate.practiceRampEveryBars),
     metronomeEnabled: getBooleanSetting(candidate.metronomeEnabled, DEFAULT_STATE.metronomeEnabled),
     metronomeDownEnabled: getBooleanSetting(candidate.metronomeDownEnabled, DEFAULT_STATE.metronomeDownEnabled),
     metronomeUpEnabled: getBooleanSetting(candidate.metronomeUpEnabled, DEFAULT_STATE.metronomeUpEnabled),
@@ -299,6 +322,14 @@ function sanitizePartialSerializableState(candidate = {}) {
       candidate.countInEnabled === null
         ? null
         : getBooleanSetting(candidate.countInEnabled, DEFAULT_STATE.countInEnabled),
+    practiceRampEnabled:
+      candidate.practiceRampEnabled === null
+        ? null
+        : getBooleanSetting(candidate.practiceRampEnabled, DEFAULT_STATE.practiceRampEnabled),
+    practiceRampStepBpm:
+      candidate.practiceRampStepBpm === null ? null : clampPracticeRampStep(candidate.practiceRampStepBpm),
+    practiceRampEveryBars:
+      candidate.practiceRampEveryBars === null ? null : clampPracticeRampBars(candidate.practiceRampEveryBars),
     metronomeEnabled:
       candidate.metronomeEnabled === null
         ? null
@@ -350,6 +381,9 @@ function mergeSerializableState(...candidates) {
       active: nextActive,
       bpm: candidate.bpm ?? merged.bpm,
       countInEnabled: candidate.countInEnabled ?? merged.countInEnabled,
+      practiceRampEnabled: candidate.practiceRampEnabled ?? merged.practiceRampEnabled,
+      practiceRampStepBpm: candidate.practiceRampStepBpm ?? merged.practiceRampStepBpm,
+      practiceRampEveryBars: candidate.practiceRampEveryBars ?? merged.practiceRampEveryBars,
       metronomeEnabled: candidate.metronomeEnabled ?? merged.metronomeEnabled,
       metronomeDownEnabled: candidate.metronomeDownEnabled ?? merged.metronomeDownEnabled,
       metronomeUpEnabled: candidate.metronomeUpEnabled ?? merged.metronomeUpEnabled,
@@ -436,6 +470,24 @@ function clampSliderValue(value, fallback) {
   return Math.min(100, Math.max(0, Math.round(numeric)));
 }
 
+function clampPracticeRampStep(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_STATE.practiceRampStepBpm;
+  }
+
+  return Math.min(20, Math.max(1, Math.round(numeric)));
+}
+
+function clampPracticeRampBars(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_STATE.practiceRampEveryBars;
+  }
+
+  return Math.min(16, Math.max(1, Math.round(numeric)));
+}
+
 function getBooleanSetting(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -513,6 +565,9 @@ function buildShareUrl() {
   url.searchParams.set("p", encodePattern(serializableState.active));
   url.searchParams.set("b", String(serializableState.bpm));
   url.searchParams.set("ci", serializableState.countInEnabled ? "1" : "0");
+  url.searchParams.set("pr", serializableState.practiceRampEnabled ? "1" : "0");
+  url.searchParams.set("ps", String(serializableState.practiceRampStepBpm));
+  url.searchParams.set("pb", String(serializableState.practiceRampEveryBars));
   url.searchParams.set("mc", serializableState.metronomeEnabled ? "1" : "0");
   url.searchParams.set("md", serializableState.metronomeDownEnabled ? "1" : "0");
   url.searchParams.set("mu", serializableState.metronomeUpEnabled ? "1" : "0");
@@ -578,6 +633,10 @@ function applyStateToControls() {
   elements.bpmInput.value = state.bpm;
   elements.bpmRange.value = state.bpm;
   elements.countInToggle.checked = state.countInEnabled;
+  elements.practiceRampToggle.checked = state.practiceRampEnabled;
+  elements.practiceRampStepInput.value = state.practiceRampStepBpm;
+  elements.practiceRampBarsInput.value = state.practiceRampEveryBars;
+  elements.practiceRampFields.hidden = !state.practiceRampEnabled;
   elements.metronomeToggle.checked = state.metronomeEnabled;
   elements.metronomeDownToggle.checked = state.metronomeDownEnabled;
   elements.metronomeUpToggle.checked = state.metronomeUpEnabled;
@@ -684,7 +743,7 @@ function updateMetronomeStatus() {
   if (!isRunning) {
     setMetronomeStatus({
       title: "Stopped",
-      detail: state.countInEnabled ? `${pulseLabel} • 1-bar count-in on start` : pulseLabel,
+      detail: getStoppedStatusDetail(pulseLabel),
       bpm: state.bpm,
     });
     return;
@@ -701,9 +760,25 @@ function updateMetronomeStatus() {
 
   setMetronomeStatus({
     title: "Playing",
-    detail: `Current step: ${stepLabel}`,
+    detail: state.practiceRampEnabled
+      ? `Current step: ${stepLabel} • Ramp +${state.practiceRampStepBpm} BPM every ${state.practiceRampEveryBars} bars`
+      : `Current step: ${stepLabel}`,
     bpm: state.bpm,
   });
+}
+
+function getStoppedStatusDetail(pulseLabel) {
+  const parts = [pulseLabel];
+
+  if (state.countInEnabled) {
+    parts.push("1-bar count-in on start");
+  }
+
+  if (state.practiceRampEnabled) {
+    parts.push(`ramp +${state.practiceRampStepBpm} BPM every ${state.practiceRampEveryBars} bars`);
+  }
+
+  return parts.join(" • ");
 }
 
 function registerTapTempo() {
@@ -826,6 +901,11 @@ function syncBpm(value) {
   state.bpm = clampBpm(value);
   elements.bpmInput.value = state.bpm;
   elements.bpmRange.value = state.bpm;
+
+  if (!state.timerId) {
+    state.playbackStartBpm = null;
+  }
+
   syncStoredState();
 
   if (state.timerId) {
@@ -834,6 +914,30 @@ function syncBpm(value) {
   }
 
   updateMetronomeStatus();
+}
+
+function applyPracticeRampStep() {
+  if (!state.practiceRampEnabled || state.bpm >= 220) {
+    return;
+  }
+
+  state.bpm = clampBpm(state.bpm + state.practiceRampStepBpm);
+  elements.bpmInput.value = state.bpm;
+  elements.bpmRange.value = state.bpm;
+  syncStoredState();
+}
+
+function updatePracticeRampSetting(key, value) {
+  if (key === "practiceRampStepBpm") {
+    state[key] = clampPracticeRampStep(value);
+    elements.practiceRampStepInput.value = state[key];
+  } else if (key === "practiceRampEveryBars") {
+    state[key] = clampPracticeRampBars(value);
+    elements.practiceRampBarsInput.value = state[key];
+  }
+
+  syncStoredState();
+  render();
 }
 
 function handleBpmTextInput(value) {
@@ -916,8 +1020,10 @@ function playToneAt({ frequency, volume, duration, type, when, attack = 0.006, r
   oscillator.stop(now + duration + 0.01);
 }
 
-function playMetronomeClick(stepIndex, when) {
-  if (!state.metronomeEnabled) {
+function playMetronomeClick(stepIndex, when, options = {}) {
+  const { forceAudible = false } = options;
+
+  if (!state.metronomeEnabled && !forceAudible) {
     return;
   }
 
@@ -1001,7 +1107,7 @@ function scheduleStep(stepIndex, when) {
 
 function scheduleCountInBeat(beatNumber, when) {
   const stepIndex = getQuarterStepIndices()[beatNumber - 1];
-  playMetronomeClick(stepIndex, when);
+  playMetronomeClick(stepIndex, when, { forceAudible: true });
   scheduleUiUpdate(when, () => {
     state.transportPhase = "count-in";
     state.countInBeat = beatNumber;
@@ -1023,9 +1129,19 @@ function runScheduler() {
       continue;
     }
 
-    scheduleStep(state.nextStepIndex, state.nextNoteTime);
+    const stepIndex = state.nextStepIndex;
+    scheduleStep(stepIndex, state.nextNoteTime);
+
+    const nextStepIndex = (stepIndex + 1) % getSubdivisionCount();
+    if (nextStepIndex === 0) {
+      state.completedBars += 1;
+      if (state.completedBars % state.practiceRampEveryBars === 0) {
+        applyPracticeRampStep();
+      }
+    }
+
+    state.nextStepIndex = nextStepIndex;
     state.nextNoteTime += getStepIntervalSeconds();
-    state.nextStepIndex = (state.nextStepIndex + 1) % getSubdivisionCount();
   }
 }
 
@@ -1036,12 +1152,14 @@ function startMetronome() {
 
   ensureAudioContext();
   clearScheduledUiSteps();
+  state.playbackStartBpm = state.bpm;
   state.currentStep = -1;
   state.nextStepIndex = 0;
   state.nextNoteTime = state.audioContext.currentTime + FIRST_NOTE_LEAD_SECONDS;
   state.transportPhase = state.countInEnabled ? "count-in" : "playing";
   state.countInBeat = 0;
   state.countInScheduledBeat = 0;
+  state.completedBars = 0;
   runScheduler();
   state.timerId = window.setInterval(runScheduler, SCHEDULER_LOOKAHEAD_MS);
   updateMetronomeStatus();
@@ -1053,11 +1171,20 @@ function stopMetronome() {
     state.timerId = null;
   }
 
+  if (state.practiceRampEnabled && Number.isFinite(state.playbackStartBpm)) {
+    state.bpm = clampBpm(state.playbackStartBpm);
+    elements.bpmInput.value = state.bpm;
+    elements.bpmRange.value = state.bpm;
+    syncStoredState();
+  }
+
   clearScheduledUiSteps();
   state.currentStep = -1;
   state.transportPhase = "stopped";
   state.countInBeat = 0;
   state.countInScheduledBeat = 0;
+  state.completedBars = 0;
+  state.playbackStartBpm = null;
   render();
 }
 
@@ -1134,6 +1261,37 @@ function attachEventListeners() {
 
   elements.countInToggle.addEventListener("change", (event) => {
     updateToggleState("countInEnabled", event.target.checked);
+    render();
+  });
+
+  elements.practiceRampToggle.addEventListener("change", (event) => {
+    updateToggleState("practiceRampEnabled", event.target.checked);
+    applyStateToControls();
+    render();
+  });
+
+  elements.practiceRampStepInput.addEventListener("input", (event) => {
+    updatePracticeRampSetting("practiceRampStepBpm", event.target.value);
+  });
+
+  elements.practiceRampBarsInput.addEventListener("input", (event) => {
+    updatePracticeRampSetting("practiceRampEveryBars", event.target.value);
+  });
+
+  elements.practiceRampStepInput.addEventListener("blur", (event) => {
+    updatePracticeRampSetting("practiceRampStepBpm", event.target.value);
+  });
+
+  elements.practiceRampBarsInput.addEventListener("blur", (event) => {
+    updatePracticeRampSetting("practiceRampEveryBars", event.target.value);
+  });
+
+  elements.practiceRampStepInput.addEventListener("change", (event) => {
+    updatePracticeRampSetting("practiceRampStepBpm", event.target.value);
+  });
+
+  elements.practiceRampBarsInput.addEventListener("change", (event) => {
+    updatePracticeRampSetting("practiceRampEveryBars", event.target.value);
     render();
   });
 
