@@ -242,6 +242,16 @@ button.primary {
   border-color: rgba(34, 197, 94, 0.45);
 }
 
+button.primary[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.24), rgba(239, 68, 68, 0.14));
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+button.primary[aria-pressed="true"]:hover {
+  border-color: rgba(248, 113, 113, 0.7);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.3), rgba(239, 68, 68, 0.18));
+}
+
 button.secondary {
   background: linear-gradient(180deg, rgba(96, 165, 250, 0.18), rgba(96, 165, 250, 0.1));
   border-color: rgba(96, 165, 250, 0.35);

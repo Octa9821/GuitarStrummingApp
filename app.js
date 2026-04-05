@@ -14,6 +14,7 @@ const DEFAULT_STATE = {
   subdivisionMode: SUBDIVISION_MODES.eighth,
   active: [true, false, true, false, true, false, true, false],
   bpm: 90,
+  countInEnabled: false,
   metronomeEnabled: true,
   metronomeDownEnabled: true,
   metronomeUpEnabled: true,
@@ -120,12 +121,12 @@ const elements = {
   clearBtn: document.getElementById("clearBtn"),
   fillBtn: document.getElementById("fillBtn"),
   playBtn: document.getElementById("playBtn"),
-  stopBtn: document.getElementById("stopBtn"),
   tapTempoBtn: document.getElementById("tapTempoBtn"),
   eighthModeBtn: document.getElementById("eighthModeBtn"),
   sixteenthModeBtn: document.getElementById("sixteenthModeBtn"),
   bpmInput: document.getElementById("bpmInput"),
   bpmRange: document.getElementById("bpmRange"),
+  countInToggle: document.getElementById("countInToggle"),
   metronomeToggle: document.getElementById("metronomeToggle"),
   metronomeDownToggle: document.getElementById("metronomeDownToggle"),
   metronomeUpToggle: document.getElementById("metronomeUpToggle"),
@@ -149,6 +150,9 @@ const state = {
   nextStepIndex: 0,
   nextNoteTime: 0,
   uiStepTimeoutIds: [],
+  transportPhase: "stopped",
+  countInBeat: 0,
+  countInScheduledBeat: 0,
 };
 let shareStatusTimerId = null;
 let tapTempoTimestamps = [];
@@ -186,6 +190,7 @@ function loadStateFromUrl() {
   const subdivisionMode = parseSubdivisionMode(params.get("m")) ?? inferSubdivisionModeFromPattern(params.get("p"));
   const pattern = decodePattern(params.get("p"), subdivisionMode ?? DEFAULT_STATE.subdivisionMode);
   const bpm = parseNumberParam(params.get("b"));
+  const countInEnabled = parseBooleanParam(params.get("ci"));
   const metronomeEnabled = parseBooleanParam(params.get("mc"));
   const metronomeDownEnabled = parseBooleanParam(params.get("md"));
   const metronomeUpEnabled = parseBooleanParam(params.get("mu"));
@@ -199,6 +204,7 @@ function loadStateFromUrl() {
     pattern === null &&
     subdivisionMode === null &&
     bpm === null &&
+    countInEnabled === null &&
     metronomeEnabled === null &&
     metronomeDownEnabled === null &&
     metronomeUpEnabled === null &&
@@ -215,6 +221,7 @@ function loadStateFromUrl() {
     subdivisionMode,
     active: pattern,
     bpm,
+    countInEnabled,
     metronomeEnabled,
     metronomeDownEnabled,
     metronomeUpEnabled,
@@ -246,6 +253,7 @@ function getSerializableState() {
     subdivisionMode: state.subdivisionMode,
     active: [...state.active],
     bpm: state.bpm,
+    countInEnabled: state.countInEnabled,
     metronomeEnabled: state.metronomeEnabled,
     metronomeDownEnabled: state.metronomeDownEnabled,
     metronomeUpEnabled: state.metronomeUpEnabled,
@@ -264,6 +272,7 @@ function sanitizeSerializableState(candidate = {}) {
     subdivisionMode,
     active: sanitizeActivePattern(candidate.active, subdivisionMode),
     bpm: clampBpm(candidate.bpm),
+    countInEnabled: getBooleanSetting(candidate.countInEnabled, DEFAULT_STATE.countInEnabled),
     metronomeEnabled: getBooleanSetting(candidate.metronomeEnabled, DEFAULT_STATE.metronomeEnabled),
     metronomeDownEnabled: getBooleanSetting(candidate.metronomeDownEnabled, DEFAULT_STATE.metronomeDownEnabled),
     metronomeUpEnabled: getBooleanSetting(candidate.metronomeUpEnabled, DEFAULT_STATE.metronomeUpEnabled),
@@ -286,6 +295,10 @@ function sanitizePartialSerializableState(candidate = {}) {
     subdivisionMode,
     active: candidate.active === null ? null : sanitizeActivePattern(candidate.active, activeMode),
     bpm: candidate.bpm === null ? null : clampBpm(candidate.bpm),
+    countInEnabled:
+      candidate.countInEnabled === null
+        ? null
+        : getBooleanSetting(candidate.countInEnabled, DEFAULT_STATE.countInEnabled),
     metronomeEnabled:
       candidate.metronomeEnabled === null
         ? null
@@ -336,6 +349,7 @@ function mergeSerializableState(...candidates) {
       subdivisionMode: nextSubdivisionMode,
       active: nextActive,
       bpm: candidate.bpm ?? merged.bpm,
+      countInEnabled: candidate.countInEnabled ?? merged.countInEnabled,
       metronomeEnabled: candidate.metronomeEnabled ?? merged.metronomeEnabled,
       metronomeDownEnabled: candidate.metronomeDownEnabled ?? merged.metronomeDownEnabled,
       metronomeUpEnabled: candidate.metronomeUpEnabled ?? merged.metronomeUpEnabled,
@@ -498,6 +512,7 @@ function buildShareUrl() {
   url.searchParams.set("m", serializableState.subdivisionMode);
   url.searchParams.set("p", encodePattern(serializableState.active));
   url.searchParams.set("b", String(serializableState.bpm));
+  url.searchParams.set("ci", serializableState.countInEnabled ? "1" : "0");
   url.searchParams.set("mc", serializableState.metronomeEnabled ? "1" : "0");
   url.searchParams.set("md", serializableState.metronomeDownEnabled ? "1" : "0");
   url.searchParams.set("mu", serializableState.metronomeUpEnabled ? "1" : "0");
@@ -562,6 +577,7 @@ function applyStateToControls() {
   );
   elements.bpmInput.value = state.bpm;
   elements.bpmRange.value = state.bpm;
+  elements.countInToggle.checked = state.countInEnabled;
   elements.metronomeToggle.checked = state.metronomeEnabled;
   elements.metronomeDownToggle.checked = state.metronomeDownEnabled;
   elements.metronomeUpToggle.checked = state.metronomeUpEnabled;
@@ -662,13 +678,22 @@ function updateMetronomeStatus() {
     state.currentStep >= 0 ? `${subdivisions[state.currentStep].count} ${subdivisions[state.currentStep].direction}` : "Ready";
   const pulseLabel = state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? "Sixteenth-note pulse" : "Eighth-note pulse";
 
-  elements.playBtn.textContent = isRunning ? "Playing" : "Start";
+  elements.playBtn.textContent = isRunning ? "Stop" : "Start";
   elements.playBtn.setAttribute("aria-pressed", isRunning ? "true" : "false");
 
   if (!isRunning) {
     setMetronomeStatus({
       title: "Stopped",
-      detail: pulseLabel,
+      detail: state.countInEnabled ? `${pulseLabel} • 1-bar count-in on start` : pulseLabel,
+      bpm: state.bpm,
+    });
+    return;
+  }
+
+  if (state.transportPhase === "count-in") {
+    setMetronomeStatus({
+      title: "Count-in",
+      detail: state.countInBeat > 0 ? `Beat ${state.countInBeat} of 4` : "Get ready",
       bpm: state.bpm,
     });
     return;
@@ -847,6 +872,10 @@ function getStepIntervalSeconds() {
   return getStepIntervalMs() / 1000;
 }
 
+function getQuarterStepIndices() {
+  return state.subdivisionMode === SUBDIVISION_MODES.sixteenth ? [0, 4, 8, 12] : [0, 2, 4, 6];
+}
+
 function ensureAudioContext() {
   if (!state.audioContext) {
     state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -949,11 +978,11 @@ function clearScheduledUiSteps() {
   state.uiStepTimeoutIds = [];
 }
 
-function scheduleUiStep(stepIndex, when) {
+function scheduleUiUpdate(when, update) {
   const delay = Math.max(0, (when - state.audioContext.currentTime) * 1000);
   const timeoutId = window.setTimeout(() => {
     state.uiStepTimeoutIds = state.uiStepTimeoutIds.filter((id) => id !== timeoutId);
-    state.currentStep = stepIndex;
+    update();
     render();
   }, delay);
 
@@ -963,7 +992,21 @@ function scheduleUiStep(stepIndex, when) {
 function scheduleStep(stepIndex, when) {
   playMetronomeClick(stepIndex, when);
   playStrumSound(stepIndex, when);
-  scheduleUiStep(stepIndex, when);
+  scheduleUiUpdate(when, () => {
+    state.transportPhase = "playing";
+    state.countInBeat = 0;
+    state.currentStep = stepIndex;
+  });
+}
+
+function scheduleCountInBeat(beatNumber, when) {
+  const stepIndex = getQuarterStepIndices()[beatNumber - 1];
+  playMetronomeClick(stepIndex, when);
+  scheduleUiUpdate(when, () => {
+    state.transportPhase = "count-in";
+    state.countInBeat = beatNumber;
+    state.currentStep = stepIndex;
+  });
 }
 
 function runScheduler() {
@@ -973,6 +1016,13 @@ function runScheduler() {
 
   const scheduleUntil = state.audioContext.currentTime + SCHEDULE_AHEAD_SECONDS;
   while (state.nextNoteTime < scheduleUntil) {
+    if (state.transportPhase === "count-in" && state.countInScheduledBeat < 4) {
+      scheduleCountInBeat(state.countInScheduledBeat + 1, state.nextNoteTime);
+      state.countInScheduledBeat += 1;
+      state.nextNoteTime += 60 / state.bpm;
+      continue;
+    }
+
     scheduleStep(state.nextStepIndex, state.nextNoteTime);
     state.nextNoteTime += getStepIntervalSeconds();
     state.nextStepIndex = (state.nextStepIndex + 1) % getSubdivisionCount();
@@ -989,6 +1039,9 @@ function startMetronome() {
   state.currentStep = -1;
   state.nextStepIndex = 0;
   state.nextNoteTime = state.audioContext.currentTime + FIRST_NOTE_LEAD_SECONDS;
+  state.transportPhase = state.countInEnabled ? "count-in" : "playing";
+  state.countInBeat = 0;
+  state.countInScheduledBeat = 0;
   runScheduler();
   state.timerId = window.setInterval(runScheduler, SCHEDULER_LOOKAHEAD_MS);
   updateMetronomeStatus();
@@ -1002,6 +1055,9 @@ function stopMetronome() {
 
   clearScheduledUiSteps();
   state.currentStep = -1;
+  state.transportPhase = "stopped";
+  state.countInBeat = 0;
+  state.countInScheduledBeat = 0;
   render();
 }
 
@@ -1055,8 +1111,7 @@ function attachEventListeners() {
   elements.randomizeBtn.addEventListener("click", randomizePattern);
   elements.clearBtn.addEventListener("click", clearPattern);
   elements.fillBtn.addEventListener("click", fillPattern);
-  elements.playBtn.addEventListener("click", startMetronome);
-  elements.stopBtn.addEventListener("click", stopMetronome);
+  elements.playBtn.addEventListener("click", toggleMetronome);
   elements.tapTempoBtn.addEventListener("click", registerTapTempo);
   elements.eighthModeBtn.addEventListener("click", () => {
     setSubdivisionMode(SUBDIVISION_MODES.eighth);
@@ -1076,6 +1131,11 @@ function attachEventListeners() {
 
   elements.bpmInput.addEventListener("blur", commitBpmInputValue);
   elements.bpmInput.addEventListener("change", commitBpmInputValue);
+
+  elements.countInToggle.addEventListener("change", (event) => {
+    updateToggleState("countInEnabled", event.target.checked);
+    render();
+  });
 
   elements.metronomeToggle.addEventListener("change", (event) => {
     updateToggleState("metronomeEnabled", event.target.checked);

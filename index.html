@@ -29,7 +29,6 @@
           <h3>Playback</h3>
           <div class="card-controls card-controls-buttons">
             <button class="primary" id="playBtn" type="button">Start</button>
-            <button id="stopBtn" type="button">Stop</button>
             <div class="tooltip">
               <button
                 class="secondary"
@@ -41,6 +40,15 @@
               </button>
               <div class="tooltip-bubble" id="tapTempoHint" role="tooltip">
                 Tap at least twice in quarter notes. The app averages your last few taps and resets after a short pause.
+              </div>
+            </div>
+            <div class="tooltip">
+              <label class="field checkbox" for="countInToggle" aria-describedby="countInHint">
+                <input id="countInToggle" type="checkbox" />
+                <span>Count-in</span>
+              </label>
+              <div class="tooltip-bubble" id="countInHint" role="tooltip">
+                Adds one bar of quarter-note clicks before the pattern starts so you can lock into the tempo first.
               </div>
             </div>
           </div>
