@@ -168,6 +168,34 @@ h1 {
   max-width: 68ch;
 }
 
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.footer-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #e2e8f0;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.footer-link:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.08);
+  transform: translateY(-1px);
+}
+
 .preset-panel {
   margin-bottom: 18px;
 }
@@ -865,6 +893,14 @@ button.secondary {
   .pattern-label {
     margin-right: 0;
     margin-bottom: 0;
+  }
+
+  .footer-links {
+    align-items: stretch;
+  }
+
+  .footer-link {
+    width: 100%;
   }
 }
 
