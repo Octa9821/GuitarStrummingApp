@@ -30,7 +30,7 @@ const DEFAULT_STATE = {
   strumVolume: 70,
 };
 
-const DEFAULT_SHARE_STATUS = "Link updates automatically as you edit.";
+const DEFAULT_SHARE_STATUS = "Copy Share Link to share the current pattern.";
 
 const PRESETS = [
   {
@@ -184,7 +184,7 @@ const desktopTwoBarMediaQuery = window.matchMedia(DESKTOP_TWO_BAR_QUERY);
 
 applyStateToControls();
 attachEventListeners();
-syncShareUrl();
+clearBrowserUrl();
 renderPresetLibrary();
 render();
 
@@ -284,7 +284,6 @@ function persistState() {
 
 function syncStoredState() {
   persistState();
-  syncShareUrl();
 }
 
 function getSerializableState() {
@@ -633,9 +632,10 @@ function buildShareUrl() {
   return url;
 }
 
-function syncShareUrl() {
-  const nextUrl = buildShareUrl();
-  window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+function clearBrowserUrl() {
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.search = "";
+  window.history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
 }
 
 function setShareStatus(message, isTemporary = false) {
